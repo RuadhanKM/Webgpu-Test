@@ -30,122 +30,125 @@ canvas.addEventListener("click", async () => {
 
 const blockSize = 1
 
-function createBlockVertices([x, y, z]) {
-    return new Float32Array([
-        // Top Face
+function createBlockVertices([x, y, z], id, textureSize) {
+    let texYP = id*textureSize+textureSize
+    let texYN = id*textureSize
+
+    return [
+        // Top
         x+blockSize/2,y+blockSize/2,z-blockSize/2,1,
-        100,0,
+        textureSize,texYN,
 
         x-blockSize/2,y+blockSize/2,z+blockSize/2,1,
-        0,100,
+        0,texYP,
         
         x+blockSize/2,y+blockSize/2,z+blockSize/2,1,
-        100,100,
+        textureSize,texYP,
 
         x-blockSize/2,y+blockSize/2,z-blockSize/2,1,
-        0,0,
+        0,texYN,
 
         x-blockSize/2,y+blockSize/2,z+blockSize/2,1,
-        0,100,
+        0,texYP,
         
         x+blockSize/2,y+blockSize/2,z-blockSize/2,1,
-        100,0,
+        textureSize,texYN,
 
         // Bottom
         x+blockSize/2,y-blockSize/2,z+blockSize/2,1,
-        1,0,
+        textureSize*2,texYN,
 
         x-blockSize/2,y-blockSize/2,z+blockSize/2,1,
-        1,0,
+        textureSize,texYN,
         
         x+blockSize/2,y-blockSize/2,z-blockSize/2,1,
-        1,0,
+        textureSize*2,texYP,
 
         x-blockSize/2,y-blockSize/2,z-blockSize/2,1,
-        1,0,
+        textureSize,texYP,
 
         x+blockSize/2,y-blockSize/2,z-blockSize/2,1,
-        1,0,
+        textureSize*2,texYP,
         
         x-blockSize/2,y-blockSize/2,z+blockSize/2,1,
-        1,0,
+        textureSize,texYN,
 
         // Front
         x-blockSize/2,y+blockSize/2,z+blockSize/2,1,
-        1,0,
+        textureSize*2,texYN,
 
         x+blockSize/2,y-blockSize/2,z+blockSize/2,1,
-        1,0,
+        textureSize*3,texYP,
         
         x+blockSize/2,y+blockSize/2,z+blockSize/2,1,
-        1,0,
+        textureSize*3,texYN,
 
         x-blockSize/2,y-blockSize/2,z+blockSize/2,1,
-        1,0,
+        textureSize*2,texYP,
 
         x+blockSize/2,y-blockSize/2,z+blockSize/2,1,
-        1,0,
+        textureSize*3,texYP,
         
         x-blockSize/2,y+blockSize/2,z+blockSize/2,1,
-        1,0,
-
-        // Back
-        x+blockSize/2,y-blockSize/2,z-blockSize/2,1,
-        1,0,
-
-        x-blockSize/2,y+blockSize/2,z-blockSize/2,1,
-        1,0,
-        
-        x+blockSize/2,y+blockSize/2,z-blockSize/2,1,
-        1,0,
-
-        x-blockSize/2,y-blockSize/2,z-blockSize/2,1,
-        1,0,
-
-        x-blockSize/2,y+blockSize/2,z-blockSize/2,1,
-        1,0,
-        
-        x+blockSize/2,y-blockSize/2,z-blockSize/2,1,
-        1,0,
+        textureSize*2,texYN,
 
         // Right
         x+blockSize/2,y-blockSize/2,z+blockSize/2,1,
-        1,0,
+        textureSize*3,texYP,
 
         x+blockSize/2,y+blockSize/2,z-blockSize/2,1,
-        1,0,
+        textureSize*4,texYN,
         
         x+blockSize/2,y+blockSize/2,z+blockSize/2,1,
-        1,0,
+        textureSize*3,texYN,
 
         x+blockSize/2,y-blockSize/2,z-blockSize/2,1,
-        1,0,
+        textureSize*4,texYP,
 
         x+blockSize/2,y+blockSize/2,z-blockSize/2,1,
-        1,0,
+        textureSize*4,texYN,
         
         x+blockSize/2,y-blockSize/2,z+blockSize/2,1,
-        1,0,
+        textureSize*3,texYP,
+
+        // Back
+        x+blockSize/2,y-blockSize/2,z-blockSize/2,1,
+        textureSize*4,texYP,
+
+        x-blockSize/2,y+blockSize/2,z-blockSize/2,1,
+        textureSize*5,texYN,
+        
+        x+blockSize/2,y+blockSize/2,z-blockSize/2,1,
+        textureSize*4,texYN,
+
+        x-blockSize/2,y-blockSize/2,z-blockSize/2,1,
+        textureSize*5,texYP,
+
+        x-blockSize/2,y+blockSize/2,z-blockSize/2,1,
+        textureSize*5,texYN,
+        
+        x+blockSize/2,y-blockSize/2,z-blockSize/2,1,
+        textureSize*4,texYP,
 
         // Left
         x-blockSize/2,y+blockSize/2,z-blockSize/2,1,
-        1,0,
+        textureSize*5,texYN,
 
         x-blockSize/2,y-blockSize/2,z+blockSize/2,1,
-        1,0,
+        textureSize*6,texYP,
         
         x-blockSize/2,y+blockSize/2,z+blockSize/2,1,
-        1,0,
+        textureSize*6,texYN,
 
         x-blockSize/2,y-blockSize/2,z-blockSize/2,1,
-        1,0,
+        textureSize*5,texYP,
 
         x-blockSize/2,y-blockSize/2,z+blockSize/2,1,
-        1,0,
+        textureSize*6,texYP,
         
         x-blockSize/2,y+blockSize/2,z-blockSize/2,1,
-        1,0,
-    ])
+        textureSize*5,texYN,
+    ]
 }
 
 fetchUtils().then(([adapter, device, shaderSource, diffuseImage]) => {
@@ -162,7 +165,7 @@ fetchUtils().then(([adapter, device, shaderSource, diffuseImage]) => {
     });
 
     // Create test vertices in buffer
-    const vertices = createBlockVertices([0,0,0])
+    const vertices = new Float32Array([...createBlockVertices([0,0,0], 1, 16), ...createBlockVertices([-2, 0, 0], 0, 16), ...createBlockVertices([2, 0, 0], 2, 16)])
 
     // Create vertex buffer
     const vertexBuffer = device.createBuffer({

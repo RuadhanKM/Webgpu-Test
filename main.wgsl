@@ -21,6 +21,5 @@ fn vertex_main(@location(0) position: vec4f, @location(1) uv: vec2f) -> VertexOu
 
 @fragment
 fn fragment_main(fragData: VertexOut) -> @location(0) vec4f {
-	var color : vec4f = textureLoad(gradientTexture, vec2i(fragData.uv), 0);
-	return vec4f(color.a, fragData.uv.x, fragData.uv.y, 1);
+	return textureLoad(gradientTexture, vec2i(fragData.uv), 0);
 }
