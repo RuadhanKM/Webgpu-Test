@@ -191,6 +191,12 @@ fetchUtils().then(([adapter, device, shaderSource, diffuseImage]) => {
                 GPUTextureUsage.RENDER_ATTACHMENT,
     })
 
+    const depthTexture = device.createTexture({
+        size: [canvas.width, canvas.height, 1],
+        format: "depth24plus",
+        usage: GPUTextureUsage.RENDER_ATTACHMENT,
+    });
+
     device.queue.copyExternalImageToTexture(
         { source: diffuseImage },
         { texture: diffuseTexture },
@@ -240,6 +246,11 @@ fetchUtils().then(([adapter, device, shaderSource, diffuseImage]) => {
             topology: "triangle-list",
             cullMode: 'back'
         },
+        depthStencil: {
+            depthWriteEnabled: true,
+            depthCompare: "less",
+            format: "depth24plus",
+        },
         layout: "auto",
     };
 
@@ -273,6 +284,12 @@ fetchUtils().then(([adapter, device, shaderSource, diffuseImage]) => {
                 view: ctx.getCurrentTexture().createView(),
             },
         ],
+        depthStencilAttachment: {
+            view: depthTexture.createView(),
+            depthClearValue: 1.0,
+            depthLoadOp: "clear",
+            depthStoreOp: "store",
+        },
     };
     
     const projectionMat = mat4.perspective(Math.PI/2, canvas.clientWidth / canvas.clientHeight, 0.1, 2000)
