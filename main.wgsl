@@ -17,7 +17,6 @@ const lightDir: vec3f = vec3f(100, 200, 150);
 fn vertex_main(@location(0) position: vec4f, @location(1) uv: vec2f, @location(2) normal: vec3f, @location(3) blockLocation: vec3f) -> VertexOut {
 	var output : VertexOut;
 	var a : u32 = tick;
-	var b : vec3i = highlighted;
 
 	if length(blockLocation - vec3f(highlighted)) <= 0.1 {
 		output.overlayColor = vec3f(0.3);
@@ -25,7 +24,7 @@ fn vertex_main(@location(0) position: vec4f, @location(1) uv: vec2f, @location(2
 
 	output.uv = uv;
 	output.normal = normal;
-	
+
 	output.position = worldToCamMat * position;
 	
 	return output;
@@ -33,6 +32,6 @@ fn vertex_main(@location(0) position: vec4f, @location(1) uv: vec2f, @location(2
 
 @fragment
 fn fragment_main(fragData: VertexOut) -> @location(0) vec4f {
-	var color: vec3f = (textureLoad(diffuseTexture, vec2i(fragData.uv), 0).xyz + fragData.overlayColor) * max(dot(fragData.normal, normalize(lightDir)), 0.3);
+	var color: vec3f = mix((textureLoad(diffuseTexture, vec2i(fragData.uv), 0).xyz + fragData.overlayColor) * max(dot(fragData.normal, normalize(lightDir)), 0.3), vec3f(0.53,0.81,0.92), clamp(fragData.position.w/80, 0, 1));
 	return vec4f(color, 1);
 }
