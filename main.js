@@ -23,8 +23,8 @@ let rightClicked = false
 let deltaTime = 0
 
 document.addEventListener("mousemove", e => {
-    camRot[1] -= e.movementX/2000*deltaTime
-    camRot[0] -= e.movementY/2000*deltaTime
+    camRot[1] -= e.movementX/500
+    camRot[0] -= e.movementY/500
 })
 document.addEventListener("keydown", e => keys[e.key] = true)
 document.addEventListener("keyup", e => keys[e.key] = false)
