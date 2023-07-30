@@ -8,147 +8,345 @@ function fetchUtils() {
         
         let a = new Image()
         a.src = "diffuse.png"
-
+        
         Promise.all([shaderSourceFile.text(), navigator.gpu.requestAdapter(), a.decode().then(() => createImageBitmap(a))]).then(([shaderSource, adapter, img]) => {
             adapter.requestDevice().then(device => resolve([adapter, device, shaderSource, img])).catch(reject)
         }).catch(reject)
     }).catch(reject))
 }
 
-let camPos = [3, 2, 5]
-let camRot = [-0.3, 0.5, 0]
+let camPos = [3, 66, 5]
+let camRot = [-0.3, 4, 0]
 let keys = {}
+let leftClicked = false
+let rightClicked = false
+let deltaTime = 0
+
 document.addEventListener("mousemove", e => {
-    camRot[1] -= e.movementX/500
-    camRot[0] -= e.movementY/500
+    camRot[1] -= e.movementX/2000*deltaTime
+    camRot[0] -= e.movementY/2000*deltaTime
 })
 document.addEventListener("keydown", e => keys[e.key] = true)
 document.addEventListener("keyup", e => keys[e.key] = false)
-canvas.addEventListener("click", async () => {
+canvas.addEventListener("mousedown", async e => {
+    leftClicked = e.button == 0
+    rightClicked = e.button == 2
     canvas.requestPointerLock();
 });
 
 const blockSize = 1
 
+let blockArray = []
+let vArray = []
+
 function createBlockVertices([x, y, z], id, textureSize) {
+    id--
     let texYP = id*textureSize+textureSize
     let texYN = id*textureSize
 
-    return [
+    return {
         // Top
-        x+blockSize/2,y+blockSize/2,z-blockSize/2,1,
-        textureSize,texYN,
+        top: [
+            x+blockSize/2,y+blockSize/2,z-blockSize/2,1,
+            textureSize,texYN,
+            0,1,0,
+            x, y, z,
 
-        x-blockSize/2,y+blockSize/2,z+blockSize/2,1,
-        0,texYP,
-        
-        x+blockSize/2,y+blockSize/2,z+blockSize/2,1,
-        textureSize,texYP,
+            x-blockSize/2,y+blockSize/2,z+blockSize/2,1,
+            0,texYP,
+            0,1,0,
+            x, y, z,
+            
+            x+blockSize/2,y+blockSize/2,z+blockSize/2,1,
+            textureSize,texYP,
+            0,1,0,
+            x, y, z,
 
-        x-blockSize/2,y+blockSize/2,z-blockSize/2,1,
-        0,texYN,
+            x-blockSize/2,y+blockSize/2,z-blockSize/2,1,
+            0,texYN,
+            0,1,0,
+            x, y, z,
 
-        x-blockSize/2,y+blockSize/2,z+blockSize/2,1,
-        0,texYP,
-        
-        x+blockSize/2,y+blockSize/2,z-blockSize/2,1,
-        textureSize,texYN,
+            x-blockSize/2,y+blockSize/2,z+blockSize/2,1,
+            0,texYP,
+            0,1,0,
+            x, y, z,
+            
+            x+blockSize/2,y+blockSize/2,z-blockSize/2,1,
+            textureSize,texYN,
+            0,1,0,
+            x, y, z,
+        ],
 
         // Bottom
-        x+blockSize/2,y-blockSize/2,z+blockSize/2,1,
-        textureSize*2,texYN,
+        bottom: [
+            x+blockSize/2,y-blockSize/2,z+blockSize/2,1,
+            textureSize*2,texYN,
+            0,-1,0,
+            x, y, z,
 
-        x-blockSize/2,y-blockSize/2,z+blockSize/2,1,
-        textureSize,texYN,
-        
-        x+blockSize/2,y-blockSize/2,z-blockSize/2,1,
-        textureSize*2,texYP,
+            x-blockSize/2,y-blockSize/2,z+blockSize/2,1,
+            textureSize,texYN,
+            0,-1,0,
+            x, y, z,
+            
+            x+blockSize/2,y-blockSize/2,z-blockSize/2,1,
+            textureSize*2,texYP,
+            0,-1,0,
+            x, y, z,
 
-        x-blockSize/2,y-blockSize/2,z-blockSize/2,1,
-        textureSize,texYP,
+            x-blockSize/2,y-blockSize/2,z-blockSize/2,1,
+            textureSize,texYP,
+            0,-1,0,
+            x, y, z,
 
-        x+blockSize/2,y-blockSize/2,z-blockSize/2,1,
-        textureSize*2,texYP,
-        
-        x-blockSize/2,y-blockSize/2,z+blockSize/2,1,
-        textureSize,texYN,
+            x+blockSize/2,y-blockSize/2,z-blockSize/2,1,
+            textureSize*2,texYP,
+            0,-1,0,
+            x, y, z,
+            
+            x-blockSize/2,y-blockSize/2,z+blockSize/2,1,
+            textureSize,texYN,
+            0,-1,0,
+            x, y, z,
+        ],
 
         // Front
-        x-blockSize/2,y+blockSize/2,z+blockSize/2,1,
-        textureSize*2,texYN,
+        front: [
+            x-blockSize/2,y+blockSize/2,z+blockSize/2,1,
+            textureSize*2,texYN,
+            0,0,1,
+            x, y, z,
 
-        x+blockSize/2,y-blockSize/2,z+blockSize/2,1,
-        textureSize*3,texYP,
-        
-        x+blockSize/2,y+blockSize/2,z+blockSize/2,1,
-        textureSize*3,texYN,
+            x+blockSize/2,y-blockSize/2,z+blockSize/2,1,
+            textureSize*3,texYP,
+            0,0,1,
+            x, y, z,
+            
+            x+blockSize/2,y+blockSize/2,z+blockSize/2,1,
+            textureSize*3,texYN,
+            0,0,1,
+            x, y, z,
 
-        x-blockSize/2,y-blockSize/2,z+blockSize/2,1,
-        textureSize*2,texYP,
+            x-blockSize/2,y-blockSize/2,z+blockSize/2,1,
+            textureSize*2,texYP,
+            0,0,1,
+            x, y, z,
 
-        x+blockSize/2,y-blockSize/2,z+blockSize/2,1,
-        textureSize*3,texYP,
-        
-        x-blockSize/2,y+blockSize/2,z+blockSize/2,1,
-        textureSize*2,texYN,
+            x+blockSize/2,y-blockSize/2,z+blockSize/2,1,
+            textureSize*3,texYP,
+            0,0,1,
+            x, y, z,
+            
+            x-blockSize/2,y+blockSize/2,z+blockSize/2,1,
+            textureSize*2,texYN,
+            0,0,1,
+            x, y, z,
+        ],
 
         // Right
-        x+blockSize/2,y-blockSize/2,z+blockSize/2,1,
-        textureSize*3,texYP,
+        right: [
+            x+blockSize/2,y-blockSize/2,z+blockSize/2,1,
+            textureSize*3,texYP,
+            1,0,0,
+            x, y, z,
 
-        x+blockSize/2,y+blockSize/2,z-blockSize/2,1,
-        textureSize*4,texYN,
-        
-        x+blockSize/2,y+blockSize/2,z+blockSize/2,1,
-        textureSize*3,texYN,
+            x+blockSize/2,y+blockSize/2,z-blockSize/2,1,
+            textureSize*4,texYN,
+            1,0,0,
+            x, y, z,
+            
+            x+blockSize/2,y+blockSize/2,z+blockSize/2,1,
+            textureSize*3,texYN,
+            1,0,0,
+            x, y, z,
 
-        x+blockSize/2,y-blockSize/2,z-blockSize/2,1,
-        textureSize*4,texYP,
+            x+blockSize/2,y-blockSize/2,z-blockSize/2,1,
+            textureSize*4,texYP,
+            1,0,0,
+            x, y, z,
 
-        x+blockSize/2,y+blockSize/2,z-blockSize/2,1,
-        textureSize*4,texYN,
-        
-        x+blockSize/2,y-blockSize/2,z+blockSize/2,1,
-        textureSize*3,texYP,
+            x+blockSize/2,y+blockSize/2,z-blockSize/2,1,
+            textureSize*4,texYN,
+            1,0,0,
+            x, y, z,
+            
+            x+blockSize/2,y-blockSize/2,z+blockSize/2,1,
+            textureSize*3,texYP,
+            1,0,0,
+            x, y, z,
+        ],
 
         // Back
-        x+blockSize/2,y-blockSize/2,z-blockSize/2,1,
-        textureSize*4,texYP,
+        back: [
+            x+blockSize/2,y-blockSize/2,z-blockSize/2,1,
+            textureSize*4,texYP,
+            0,0,-1,
+            x, y, z,
 
-        x-blockSize/2,y+blockSize/2,z-blockSize/2,1,
-        textureSize*5,texYN,
-        
-        x+blockSize/2,y+blockSize/2,z-blockSize/2,1,
-        textureSize*4,texYN,
+            x-blockSize/2,y+blockSize/2,z-blockSize/2,1,
+            textureSize*5,texYN,
+            0,0,-1,
+            x, y, z,
+            
+            x+blockSize/2,y+blockSize/2,z-blockSize/2,1,
+            textureSize*4,texYN,
+            0,0,-1,
+            x, y, z,
 
-        x-blockSize/2,y-blockSize/2,z-blockSize/2,1,
-        textureSize*5,texYP,
+            x-blockSize/2,y-blockSize/2,z-blockSize/2,1,
+            textureSize*5,texYP,
+            0,0,-1,
+            x, y, z,
 
-        x-blockSize/2,y+blockSize/2,z-blockSize/2,1,
-        textureSize*5,texYN,
-        
-        x+blockSize/2,y-blockSize/2,z-blockSize/2,1,
-        textureSize*4,texYP,
+            x-blockSize/2,y+blockSize/2,z-blockSize/2,1,
+            textureSize*5,texYN,
+            0,0,-1,
+            x, y, z,
+            
+            x+blockSize/2,y-blockSize/2,z-blockSize/2,1,
+            textureSize*4,texYP,
+            0,0,-1,
+            x, y, z,
+        ],
 
         // Left
-        x-blockSize/2,y+blockSize/2,z-blockSize/2,1,
-        textureSize*5,texYN,
+        left: [
+            x-blockSize/2,y+blockSize/2,z-blockSize/2,1,
+            textureSize*5,texYN,
+            -1,0,0,
+            x, y, z,
 
-        x-blockSize/2,y-blockSize/2,z+blockSize/2,1,
-        textureSize*6,texYP,
+            x-blockSize/2,y-blockSize/2,z+blockSize/2,1,
+            textureSize*6,texYP,
+            -1,0,0,
+            x, y, z,
+            
+            x-blockSize/2,y+blockSize/2,z+blockSize/2,1,
+            textureSize*6,texYN,
+            -1,0,0,
+            x, y, z,
+
+            x-blockSize/2,y-blockSize/2,z-blockSize/2,1,
+            textureSize*5,texYP,
+            -1,0,0,
+            x, y, z,
+
+            x-blockSize/2,y-blockSize/2,z+blockSize/2,1,
+            textureSize*6,texYP,
+            -1,0,0,
+            x, y, z,
+            
+            x-blockSize/2,y+blockSize/2,z-blockSize/2,1,
+            textureSize*5,texYN,
+            -1,0,0,
+            x, y, z,
+        ]
+    }
+}
+
+function updateBlockVertices() {
+    vArray = []
+
+    for (let y=0; y<blockArray.length; y++) {
+        for (let x=0; x<blockArray[y].length; x++) {
+            for (let z=0; z<blockArray[y][x].length; z++) {
+                let id = blockArray[y][x][z]
+                if (id == 0) continue
+                let idU = blockArray[y+1] && blockArray[y+1][x][z]
+                let idD = blockArray[y-1] && blockArray[y-1][x][z]
+                let idR = blockArray[y][x+1] && blockArray[y][x+1][z]
+                let idL = blockArray[y][x-1] && blockArray[y][x-1][z]
+                let idF = blockArray[y][x][z+1]
+                let idB = blockArray[y][x][z-1]
+
+                let blockV = createBlockVertices([x, y, z], id, 16)
+
+                if (!idU) vArray.push(...blockV.top)
+                if (!idD) vArray.push(...blockV.bottom)
+                if (!idL) vArray.push(...blockV.left)
+                if (!idR) vArray.push(...blockV.right)
+                if (!idF) vArray.push(...blockV.front)
+                if (!idB) vArray.push(...blockV.back)
+            }
+        }
+    }
+}
+
+function GetIntersection(fDst1, fDst2, P1, P2) {
+    if ((fDst1 * fDst2) >= 0.0) return;
+    if (fDst1 == fDst2) return; 
+    return vec3.add(P1, vec3.mul(vec3.sub(P2, P1), (-fDst1/(fDst2-fDst1))));
+}
+
+function InBox(Hit, B1, B2, Axis) {
+    if (Math.abs(Axis)==1 && Hit[2] > B1[2] && Hit[2] < B2[2] && Hit[1] > B1[1] && Hit[1] < B2[1]) return true;
+    if (Math.abs(Axis)==2 && Hit[2] > B1[2] && Hit[2] < B2[2] && Hit[0] > B1[0] && Hit[0] < B2[0]) return true;
+    if (Math.abs(Axis)==3 && Hit[0] > B1[0] && Hit[0] < B2[0] && Hit[1] > B1[1] && Hit[1] < B2[1]) return true;
+    return false;
+}
+
+function getBlockLook(camToWorldMat) {
+    let lineDirection = mat4.lookVector(camToWorldMat)
+
+    let minPos
+    let minDis = 8
+    let face
+
+    for (let y=0; y<blockArray.length; y++) {
+        if (Math.abs(y-camPos[1]) > 7) continue
         
-        x-blockSize/2,y+blockSize/2,z+blockSize/2,1,
-        textureSize*6,texYN,
+        for (let x=0; x<blockArray[y].length; x++) {
+            if (Math.abs(x-camPos[0]) > 7) continue
 
-        x-blockSize/2,y-blockSize/2,z-blockSize/2,1,
-        textureSize*5,texYP,
+            for (let z=0; z<blockArray[y][x].length; z++) {
+                if (Math.abs(z-camPos[2]) > 7) continue
+                if (vec3.dis([x, y, z], camPos) > 7) continue
 
-        x-blockSize/2,y-blockSize/2,z+blockSize/2,1,
-        textureSize*6,texYP,
-        
-        x-blockSize/2,y+blockSize/2,z-blockSize/2,1,
-        textureSize*5,texYN,
-    ]
+                if (blockArray[y][x][z] == 0) continue 
+
+                let L1 = camPos
+                let L2 = vec3.add(camPos, vec3.mul(lineDirection, -12))
+
+                let B1 = [x-0.5, y-0.5, z-0.5]
+                let B2 = [x+0.5, y+0.5, z+0.5]
+                
+                if (L2[0] < B1[0] && L1[0] < B1[0]) continue;
+                if (L2[0] > B2[0] && L1[0] > B2[0]) continue;
+                if (L2[1] < B1[1] && L1[1] < B1[1]) continue;
+                if (L2[1] > B2[1] && L1[1] > B2[1]) continue;
+                if (L2[2] < B1[2] && L1[2] < B1[2]) continue;
+                if (L2[2] > B2[2] && L1[2] > B2[2]) continue;
+                
+                if (L1[0] > B1[0] && L1[0] < B2[0] &&
+                    L1[1] > B1[1] && L1[1] < B2[1] &&
+                    L1[2] > B1[2] && L1[2] < B2[2]) 
+                {
+                    return [[x, y, z], 0];
+                }
+                
+                let hitA = GetIntersection(L1[0]-B1[0], L2[0]-B1[0], L1, L2)
+                let hitB = GetIntersection(L1[1]-B1[1], L2[1]-B1[1], L1, L2) 
+                let hitC = GetIntersection(L1[2]-B1[2], L2[2]-B1[2], L1, L2) 
+                let hitD = GetIntersection(L1[0]-B2[0], L2[0]-B2[0], L1, L2) 
+                let hitE = GetIntersection(L1[1]-B2[1], L2[1]-B2[1], L1, L2) 
+                let hitF = GetIntersection(L1[2]-B2[2], L2[2]-B2[2], L1, L2)
+
+                for (const [hit, f] of [[hitA, 1], [hitB, 2], [hitC, 3], [hitD, -1], [hitE, -2], [hitF, -3]]) {
+                    if (hit && InBox(hit, B1, B2, f)) {
+                        let dis = vec3.dis(hit, camPos)
+                        if (dis < minDis) {
+                            minDis = dis
+                            minPos = [x, y, z]
+                            face = f
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    return [minPos, face]
 }
 
 fetchUtils().then(([adapter, device, shaderSource, diffuseImage]) => {
@@ -165,47 +363,78 @@ fetchUtils().then(([adapter, device, shaderSource, diffuseImage]) => {
     });
 
     // Create test vertices in buffer
-    const vertices = new Float32Array([...createBlockVertices([0,0,0], 1, 16), ...createBlockVertices([-2, 0, 0], 0, 16), ...createBlockVertices([2, 0, 0], 2, 16)])
 
+    for (let y=0; y<64; y++) {
+        let layer = []
+        for (let x=0; x<32; x++) {
+            let row = []
+            for (let z=0; z<32; z++) {
+                row.push(2)
+            }
+            layer.push(row)
+        }
+        blockArray.push(layer)
+    }
+    let layer = []
+    for (let x=0; x<32; x++) {
+        let row = []
+        for (let z=0; z<32; z++) {
+            row.push(1)
+        }
+        layer.push(row)
+    }
+    blockArray.push(layer)
+    for (let y=0; y<64; y++) {
+        let layer = []
+        for (let x=0; x<32; x++) {
+            let row = []
+            for (let z=0; z<32; z++) {
+                row.push(0)
+            }
+            layer.push(row)
+        }
+        blockArray.push(layer)
+    }
+    
     // Create vertex buffer
-    const vertexBuffer = device.createBuffer({
-        size: vertices.byteLength, // make it big enough to store test vertices in
-        usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
-    });
-
+    
     const worldToCamMatBuffer = device.createBuffer({
         size: 64,
         usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
     })
-
+    
     const tickBuffer = device.createBuffer({
         size: 8,
         usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
     })
 
+    const highligtedBuffer = device.createBuffer({
+        size: 32,
+        usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
+    })
+    
     const diffuseTexture = device.createTexture({
         size: [diffuseImage.width, diffuseImage.height, 1],
         format: "rgba8unorm",
         usage:  GPUTextureUsage.TEXTURE_BINDING |
-                GPUTextureUsage.COPY_DST |
-                GPUTextureUsage.RENDER_ATTACHMENT,
+        GPUTextureUsage.COPY_DST |
+        GPUTextureUsage.RENDER_ATTACHMENT,
     })
-
+    
     const depthTexture = device.createTexture({
         size: [canvas.width, canvas.height, 1],
         format: "depth24plus",
         usage: GPUTextureUsage.RENDER_ATTACHMENT,
     });
-
+    
     device.queue.copyExternalImageToTexture(
         { source: diffuseImage },
         { texture: diffuseTexture },
         [diffuseImage.width, diffuseImage.height]
     );
-
+        
     // Write test vertices to gpu
-    device.queue.writeBuffer(vertexBuffer, 0, vertices, 0, vertices.length);
-
+    
     // Specify format of test vertices buffer
     const vertexBuffers = [
         {
@@ -220,8 +449,18 @@ fetchUtils().then(([adapter, device, shaderSource, diffuseImage]) => {
                     offset: 16,
                     format: "float32x2",
                 },
+                {
+                    shaderLocation: 2, // normal
+                    offset: 24,
+                    format: "float32x3"
+                },
+                {
+                    shaderLocation: 3, // block location
+                    offset: 36,
+                    format: "float32x3"
+                }
             ],
-            arrayStride: 24,
+            arrayStride: 48,
             stepMode: "vertex",
         }
     ];
@@ -253,10 +492,10 @@ fetchUtils().then(([adapter, device, shaderSource, diffuseImage]) => {
         },
         layout: "auto",
     };
-
+    
     // Create the pipeline
     const renderPipeline = device.createRenderPipeline(pipelineDescriptor);
-
+    
     const bindGroup = device.createBindGroup({
         layout: renderPipeline.getBindGroupLayout(0),
         entries: [
@@ -271,6 +510,10 @@ fetchUtils().then(([adapter, device, shaderSource, diffuseImage]) => {
             {
                 binding: 2,
                 resource: diffuseTexture.createView()
+            },
+            {
+                binding: 3,
+                resource: { buffer: highligtedBuffer }
             }
         ],
     });
@@ -293,34 +536,73 @@ fetchUtils().then(([adapter, device, shaderSource, diffuseImage]) => {
     };
     
     const projectionMat = mat4.perspective(Math.PI/2, canvas.clientWidth / canvas.clientHeight, 0.1, 2000)
-
+    
+    updateBlockVertices()
+    
     let tick = 0
+    let lastTime = 0
     setInterval(() => {
+        deltaTime = performance.now() - lastTime
+        lastTime = performance.now()
+
         let camToWorldMat = mat4.rotateZYX(mat4.translation(camPos), camRot)
+
+        let [highlightedBlock, face] = getBlockLook(camToWorldMat)
+
+        if (leftClicked) {
+            leftClicked = false
+
+            if (highlightedBlock) {
+                blockArray[highlightedBlock[1]][highlightedBlock[0]][highlightedBlock[2]] = 0
+                updateBlockVertices()
+            }
+        }
+        if (rightClicked) {
+            rightClicked = false
+
+            if (highlightedBlock && face) {
+                if (face == -1) blockArray[highlightedBlock[1]][highlightedBlock[0]+1][highlightedBlock[2]] = 3
+                if (face == -2) blockArray[highlightedBlock[1]+1][highlightedBlock[0]][highlightedBlock[2]] = 3
+                if (face == -3) blockArray[highlightedBlock[1]][highlightedBlock[0]][highlightedBlock[2]+1] = 3
+                if (face == 1) blockArray[highlightedBlock[1]][highlightedBlock[0]-1][highlightedBlock[2]] = 3
+                if (face == 2) blockArray[highlightedBlock[1]-1][highlightedBlock[0]][highlightedBlock[2]] = 3
+                if (face == 3) blockArray[highlightedBlock[1]][highlightedBlock[0]][highlightedBlock[2]-1] = 3
+                
+                updateBlockVertices()
+            }
+        }
+
+        const vertices = new Float32Array(vArray)
+        const vertexBuffer = device.createBuffer({
+            size: vertices.byteLength, // make it big enough to store test vertices in
+            usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
+        });
+        
+        device.queue.writeBuffer(vertexBuffer, 0, vertices, 0, vertices.length);     
         
         if (keys.w) {
             let lookVector = mat4.lookVector(camToWorldMat)
-            camPos[0] -= lookVector[0]/50
-            camPos[1] -= lookVector[1]/50
-            camPos[2] -= lookVector[2]/50
+            camPos[0] -= lookVector[0]/100 * deltaTime
+            camPos[1] -= lookVector[1]/100 * deltaTime
+            camPos[2] -= lookVector[2]/100 * deltaTime
         }
         if (keys.a) {
             let rightVector = mat4.rightVector(camToWorldMat)
-            camPos[0] -= rightVector[0]/50
-            camPos[1] -= rightVector[1]/50
-            camPos[2] -= rightVector[2]/50
+            camPos[0] -= rightVector[0]/100 * deltaTime
+            camPos[1] -= rightVector[1]/100 * deltaTime
+            camPos[2] -= rightVector[2]/100 * deltaTime
         }
         if (keys.s) {
             let lookVector = mat4.lookVector(camToWorldMat)
-            camPos[0] += lookVector[0]/50
-            camPos[1] += lookVector[1]/50
-            camPos[2] += lookVector[2]/50
+            camPos[0] += lookVector[0]/100 * deltaTime
+            camPos[1] += lookVector[1]/100 * deltaTime
+            camPos[2] += lookVector[2]/100 * deltaTime
         }
         if (keys.d) {
             let rightVector = mat4.rightVector(camToWorldMat)
-            camPos[0] += rightVector[0]/50
-            camPos[1] += rightVector[1]/50
-            camPos[2] += rightVector[2]/50
+            camPos[0] += rightVector[0]/100 * deltaTime
+            camPos[1] += rightVector[1]/100 * deltaTime
+            camPos[2] += rightVector[2]/100 * deltaTime
         }
 
         // Create encoder
@@ -330,6 +612,11 @@ fetchUtils().then(([adapter, device, shaderSource, diffuseImage]) => {
 
         device.queue.writeBuffer(worldToCamMatBuffer, 0, mat4.multiply(projectionMat, mat4.inverse(camToWorldMat)))
         device.queue.writeBuffer(tickBuffer, 0, new Uint32Array([tick]))
+        if (highlightedBlock) {
+            device.queue.writeBuffer(highligtedBuffer, 0, new Int32Array(highlightedBlock))
+        } else {
+            device.queue.writeBuffer(highligtedBuffer, 0, new Int32Array([0, -Infinity, 0]))
+        }
 
         // Init pass encoder
         const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);
@@ -340,7 +627,7 @@ fetchUtils().then(([adapter, device, shaderSource, diffuseImage]) => {
 
         passEncoder.setBindGroup(0, bindGroup);
 
-        passEncoder.draw(vertices.length/6);
+        passEncoder.draw(vertices.length/12);
         passEncoder.end();
 
         device.queue.submit([commandEncoder.finish()]);
