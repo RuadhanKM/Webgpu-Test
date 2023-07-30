@@ -15,8 +15,8 @@ function fetchUtils() {
     }).catch(reject))
 }
 
-let camPos = [3, 66, 5]
-let camRot = [-0.3, 4, 0]
+let camPos = [0, 70, 0]
+let camRot = [-Math.PI/2, 0, 0]
 let keys = {}
 let leftClicked = false
 let rightClicked = false
@@ -35,8 +35,10 @@ canvas.addEventListener("mousedown", async e => {
 });
 
 const blockSize = 1
+const renderDistance = 4
+const chunkSize = 16
 
-let blockArray = []
+let chunks = {}
 let vArray = []
 
 function createBlockVertices([x, y, z], id, textureSize) {
@@ -248,26 +250,44 @@ function createBlockVertices([x, y, z], id, textureSize) {
 function updateBlockVertices() {
     vArray = []
 
-    for (let y=0; y<blockArray.length; y++) {
-        for (let x=0; x<blockArray[y].length; x++) {
-            for (let z=0; z<blockArray[y][x].length; z++) {
-                let id = blockArray[y][x][z]
-                if (id == 0) continue
-                let idU = blockArray[y+1] && blockArray[y+1][x][z]
-                let idD = blockArray[y-1] && blockArray[y-1][x][z]
-                let idR = blockArray[y][x+1] && blockArray[y][x+1][z]
-                let idL = blockArray[y][x-1] && blockArray[y][x-1][z]
-                let idF = blockArray[y][x][z+1]
-                let idB = blockArray[y][x][z-1]
+    let playerChunk = getBlockChunk(camPos)
+    for (let chunkX=-renderDistance/2; chunkX<=renderDistance/2; chunkX++) {
+        for (let chunkY=-renderDistance/2; chunkY<=renderDistance/2; chunkY++) {
+            if (Math.sqrt(chunkX*chunkX+chunkY*chunkY) > renderDistance/2) continue
+            let blockArray = getChunk(chunkX+playerChunk[0], chunkY+playerChunk[1])
+            if (!blockArray) continue
+            let blockArrayL = getChunk(chunkX+playerChunk[0]-1, chunkY+playerChunk[1])
+            let blockArrayR = getChunk(chunkX+playerChunk[0]+1, chunkY+playerChunk[1])
+            let blockArrayF = getChunk(chunkX+playerChunk[0], chunkY+playerChunk[1]+1)
+            let blockArrayB = getChunk(chunkX+playerChunk[0], chunkY+playerChunk[1]-1)
 
-                let blockV = createBlockVertices([x, y, z], id, 16)
+            for (let y=0; y<blockArray.length; y++) {
+                for (let x=0; x<blockArray[y].length; x++) {
+                    for (let z=0; z<blockArray[y][x].length; z++) {
+                        let id = blockArray[y][x][z]
+                        if (id == 0) continue
+                        let idU = blockArray[y+1] && blockArray[y+1][x][z]
+                        let idD = blockArray[y-1] && blockArray[y-1][x][z]
+                        let idR = blockArray[y][x+1] && blockArray[y][x+1][z]
+                        let idL = blockArray[y][x-1] && blockArray[y][x-1][z]
+                        let idF = blockArray[y][x][z+1]
+                        let idB = blockArray[y][x][z-1]
 
-                if (!idU) vArray.push(...blockV.top)
-                if (!idD) vArray.push(...blockV.bottom)
-                if (!idL) vArray.push(...blockV.left)
-                if (!idR) vArray.push(...blockV.right)
-                if (!idF) vArray.push(...blockV.front)
-                if (!idB) vArray.push(...blockV.back)
+                        if (idR == undefined) idR = blockArrayR && blockArrayR[y].at(0)[z]
+                        if (idL == undefined) idL = blockArrayL && blockArrayL[y].at(-1)[z]
+                        if (idF == undefined) idF = blockArrayF && blockArrayF[y][x].at(0)
+                        if (idB == undefined) idB = blockArrayB && blockArrayB[y][x].at(-1)
+
+                        let blockV = createBlockVertices([x+(chunkX+playerChunk[0])*chunkSize, y, z+(chunkY+playerChunk[1])*chunkSize], id, 16)
+
+                        if (!idU) vArray.push(...blockV.top)
+                        if (!idD) vArray.push(...blockV.bottom)
+                        if (!idL) vArray.push(...blockV.left)
+                        if (!idR) vArray.push(...blockV.right)
+                        if (!idF) vArray.push(...blockV.front)
+                        if (!idB) vArray.push(...blockV.back)
+                    }
+                }
             }
         }
     }
@@ -293,52 +313,63 @@ function getBlockLook(camToWorldMat) {
     let minDis = 8
     let face
 
-    for (let y=0; y<blockArray.length; y++) {
-        if (Math.abs(y-camPos[1]) > 7) continue
+    let playerChunk = getBlockChunk(camPos)
+
+    for (let chunkX=-1; chunkX<=1; chunkX++) {
+        for (let chunkY=-1; chunkY<=1; chunkY++) {
+            let cX = chunkX+playerChunk[0]
+            let cY = chunkY+playerChunk[1]
+            let blockArray = getChunk(cX, cY)
+            if (!blockArray) continue
+
+            for (let y=0; y<blockArray.length; y++) {
+                if (Math.abs(y-camPos[1]) > 7) continue
+                
+                for (let x=0; x<blockArray[y].length; x++) {
+                    if (Math.abs(x+cX*chunkSize-camPos[0]) > 7) continue
         
-        for (let x=0; x<blockArray[y].length; x++) {
-            if (Math.abs(x-camPos[0]) > 7) continue
-
-            for (let z=0; z<blockArray[y][x].length; z++) {
-                if (Math.abs(z-camPos[2]) > 7) continue
-                if (vec3.dis([x, y, z], camPos) > 7) continue
-
-                if (blockArray[y][x][z] == 0) continue 
-
-                let L1 = camPos
-                let L2 = vec3.add(camPos, vec3.mul(lineDirection, -12))
-
-                let B1 = [x-0.5, y-0.5, z-0.5]
-                let B2 = [x+0.5, y+0.5, z+0.5]
-                
-                if (L2[0] < B1[0] && L1[0] < B1[0]) continue;
-                if (L2[0] > B2[0] && L1[0] > B2[0]) continue;
-                if (L2[1] < B1[1] && L1[1] < B1[1]) continue;
-                if (L2[1] > B2[1] && L1[1] > B2[1]) continue;
-                if (L2[2] < B1[2] && L1[2] < B1[2]) continue;
-                if (L2[2] > B2[2] && L1[2] > B2[2]) continue;
-                
-                if (L1[0] > B1[0] && L1[0] < B2[0] &&
-                    L1[1] > B1[1] && L1[1] < B2[1] &&
-                    L1[2] > B1[2] && L1[2] < B2[2]) 
-                {
-                    return [[x, y, z], 0];
-                }
-                
-                let hitA = GetIntersection(L1[0]-B1[0], L2[0]-B1[0], L1, L2)
-                let hitB = GetIntersection(L1[1]-B1[1], L2[1]-B1[1], L1, L2) 
-                let hitC = GetIntersection(L1[2]-B1[2], L2[2]-B1[2], L1, L2) 
-                let hitD = GetIntersection(L1[0]-B2[0], L2[0]-B2[0], L1, L2) 
-                let hitE = GetIntersection(L1[1]-B2[1], L2[1]-B2[1], L1, L2) 
-                let hitF = GetIntersection(L1[2]-B2[2], L2[2]-B2[2], L1, L2)
-
-                for (const [hit, f] of [[hitA, 1], [hitB, 2], [hitC, 3], [hitD, -1], [hitE, -2], [hitF, -3]]) {
-                    if (hit && InBox(hit, B1, B2, f)) {
-                        let dis = vec3.dis(hit, camPos)
-                        if (dis < minDis) {
-                            minDis = dis
-                            minPos = [x, y, z]
-                            face = f
+                    for (let z=0; z<blockArray[y][x].length; z++) {
+                        if (Math.abs(z+cY*chunkSize-camPos[2]) > 7) continue
+                        if (vec3.dis([x+cX*chunkSize, y, z+cY*chunkSize], camPos) > 7) continue
+        
+                        if (blockArray[y][x][z] == 0) continue 
+        
+                        let L1 = camPos
+                        let L2 = vec3.add(camPos, vec3.mul(lineDirection, -12))
+        
+                        let B1 = [x+cX*chunkSize-0.5, y-0.5, z+cY*chunkSize-0.5]
+                        let B2 = [x+cX*chunkSize+0.5, y+0.5, z+cY*chunkSize+0.5]
+                        
+                        if (L2[0] < B1[0] && L1[0] < B1[0]) continue;
+                        if (L2[0] > B2[0] && L1[0] > B2[0]) continue;
+                        if (L2[1] < B1[1] && L1[1] < B1[1]) continue;
+                        if (L2[1] > B2[1] && L1[1] > B2[1]) continue;
+                        if (L2[2] < B1[2] && L1[2] < B1[2]) continue;
+                        if (L2[2] > B2[2] && L1[2] > B2[2]) continue;
+                        
+                        if (L1[0] > B1[0] && L1[0] < B2[0] &&
+                            L1[1] > B1[1] && L1[1] < B2[1] &&
+                            L1[2] > B1[2] && L1[2] < B2[2]) 
+                        {
+                            return [[x+cX*chunkSize, y, z+cY*chunkSize], 0];
+                        }
+                        
+                        let hitA = GetIntersection(L1[0]-B1[0], L2[0]-B1[0], L1, L2)
+                        let hitB = GetIntersection(L1[1]-B1[1], L2[1]-B1[1], L1, L2) 
+                        let hitC = GetIntersection(L1[2]-B1[2], L2[2]-B1[2], L1, L2) 
+                        let hitD = GetIntersection(L1[0]-B2[0], L2[0]-B2[0], L1, L2) 
+                        let hitE = GetIntersection(L1[1]-B2[1], L2[1]-B2[1], L1, L2) 
+                        let hitF = GetIntersection(L1[2]-B2[2], L2[2]-B2[2], L1, L2)
+        
+                        for (const [hit, f] of [[hitA, 1], [hitB, 2], [hitC, 3], [hitD, -1], [hitE, -2], [hitF, -3]]) {
+                            if (hit && InBox(hit, B1, B2, f)) {
+                                let dis = vec3.dis(hit, camPos)
+                                if (dis < minDis) {
+                                    minDis = dis
+                                    minPos = [x+cX*chunkSize, y, z+cY*chunkSize]
+                                    face = f
+                                }
+                            }
                         }
                     }
                 }
@@ -347,6 +378,57 @@ function getBlockLook(camToWorldMat) {
     }
 
     return [minPos, face]
+}
+
+function getChunk(chunkX, chunkY) {
+    return chunks[`${chunkX} ${chunkY}`]
+}
+
+function getChunkRelPos([x, y, z], [chunkX, chunkY]) {
+    return [x-chunkX*chunkSize, y, z-chunkY*chunkSize]
+}
+
+function createChunk(chunkX, chunkY) {
+    if (getChunk(chunkX, chunkY)) return
+    let blockArray = []
+
+    for (let y=0; y<64; y++) {
+        let layer = []
+        for (let x=0; x<chunkSize; x++) {
+            let row = []
+            for (let z=0; z<chunkSize; z++) {
+                row.push(2)
+            }
+            layer.push(row)
+        }
+        blockArray.push(layer)
+    }
+    let layer = []
+    for (let x=0; x<chunkSize; x++) {
+        let row = []
+        for (let z=0; z<chunkSize; z++) {
+            row.push(1)
+        }
+        layer.push(row)
+    }
+    blockArray.push(layer)
+    for (let y=0; y<64; y++) {
+        let layer = []
+        for (let x=0; x<chunkSize; x++) {
+            let row = []
+            for (let z=0; z<chunkSize; z++) {
+                row.push(0)
+            }
+            layer.push(row)
+        }
+        blockArray.push(layer)
+    }
+
+    chunks[`${chunkX} ${chunkY}`] = blockArray
+}
+
+function getBlockChunk([x, y, z]) {
+    return [Math.floor(x / chunkSize), Math.floor(z / chunkSize)]
 }
 
 fetchUtils().then(([adapter, device, shaderSource, diffuseImage]) => {
@@ -361,42 +443,7 @@ fetchUtils().then(([adapter, device, shaderSource, diffuseImage]) => {
         format: navigator.gpu.getPreferredCanvasFormat(),
         alphaMode: "premultiplied",
     });
-
-    // Create test vertices in buffer
-
-    for (let y=0; y<64; y++) {
-        let layer = []
-        for (let x=0; x<32; x++) {
-            let row = []
-            for (let z=0; z<32; z++) {
-                row.push(2)
-            }
-            layer.push(row)
-        }
-        blockArray.push(layer)
-    }
-    let layer = []
-    for (let x=0; x<32; x++) {
-        let row = []
-        for (let z=0; z<32; z++) {
-            row.push(1)
-        }
-        layer.push(row)
-    }
-    blockArray.push(layer)
-    for (let y=0; y<64; y++) {
-        let layer = []
-        for (let x=0; x<32; x++) {
-            let row = []
-            for (let z=0; z<32; z++) {
-                row.push(0)
-            }
-            layer.push(row)
-        }
-        blockArray.push(layer)
-    }
     
-    // Create vertex buffer
     
     const worldToCamMatBuffer = device.createBuffer({
         size: 64,
@@ -536,7 +583,16 @@ fetchUtils().then(([adapter, device, shaderSource, diffuseImage]) => {
     };
     
     const projectionMat = mat4.perspective(Math.PI/2, canvas.clientWidth / canvas.clientHeight, 0.1, 2000)
-    
+
+    for (let chunkX=-Math.floor(renderDistance/2); chunkX<Math.floor(renderDistance/2); chunkX++) {
+        for (let chunkY=-Math.floor(renderDistance/2); chunkY<Math.floor(renderDistance/2); chunkY++) {
+            if (Math.sqrt(chunkX*chunkX+chunkY*chunkY) > renderDistance) continue
+            let x = getBlockChunk(camPos)[0] + chunkX
+            let y = getBlockChunk(camPos)[1] + chunkY
+
+            createChunk(x, y)
+        }
+    }
     updateBlockVertices()
     
     let tick = 0
@@ -551,9 +607,12 @@ fetchUtils().then(([adapter, device, shaderSource, diffuseImage]) => {
 
         if (leftClicked) {
             leftClicked = false
-
+            
             if (highlightedBlock) {
-                blockArray[highlightedBlock[1]][highlightedBlock[0]][highlightedBlock[2]] = 0
+                let blockChunk = getBlockChunk(highlightedBlock)
+                let block = getChunkRelPos(highlightedBlock, blockChunk)
+
+                getChunk(...blockChunk)[block[1]][block[0]][block[2]] = 0
                 updateBlockVertices()
             }
         }
@@ -561,12 +620,19 @@ fetchUtils().then(([adapter, device, shaderSource, diffuseImage]) => {
             rightClicked = false
 
             if (highlightedBlock && face) {
-                if (face == -1) blockArray[highlightedBlock[1]][highlightedBlock[0]+1][highlightedBlock[2]] = 3
-                if (face == -2) blockArray[highlightedBlock[1]+1][highlightedBlock[0]][highlightedBlock[2]] = 3
-                if (face == -3) blockArray[highlightedBlock[1]][highlightedBlock[0]][highlightedBlock[2]+1] = 3
-                if (face == 1) blockArray[highlightedBlock[1]][highlightedBlock[0]-1][highlightedBlock[2]] = 3
-                if (face == 2) blockArray[highlightedBlock[1]-1][highlightedBlock[0]][highlightedBlock[2]] = 3
-                if (face == 3) blockArray[highlightedBlock[1]][highlightedBlock[0]][highlightedBlock[2]-1] = 3
+                let block
+
+                if (face == -1) block = vec3.add(highlightedBlock, [1, 0, 0])
+                if (face == -2) block = vec3.add(highlightedBlock, [0, 1, 0])
+                if (face == -3) block = vec3.add(highlightedBlock, [0, 0, 1])
+                if (face == 1) block = vec3.add(highlightedBlock, [-1, 0, 0])
+                if (face == 2) block = vec3.add(highlightedBlock, [0, -1, 0])
+                if (face == 3) block = vec3.add(highlightedBlock, [0, 0, -1])
+
+                let blockChunk = getBlockChunk(block)
+                let relBlock = getChunkRelPos(block, blockChunk)
+
+                getChunk(...blockChunk)[relBlock[1]][relBlock[0]][relBlock[2]] = 3
                 
                 updateBlockVertices()
             }
@@ -580,6 +646,8 @@ fetchUtils().then(([adapter, device, shaderSource, diffuseImage]) => {
         
         device.queue.writeBuffer(vertexBuffer, 0, vertices, 0, vertices.length);     
         
+        let oldPos = getBlockChunk(camPos)
+
         if (keys.w) {
             let lookVector = mat4.lookVector(camToWorldMat)
             camPos[0] -= lookVector[0]/100 * deltaTime
@@ -603,6 +671,19 @@ fetchUtils().then(([adapter, device, shaderSource, diffuseImage]) => {
             camPos[0] += rightVector[0]/100 * deltaTime
             camPos[1] += rightVector[1]/100 * deltaTime
             camPos[2] += rightVector[2]/100 * deltaTime
+        }
+
+        if (getBlockChunk(camPos) != oldPos) {
+            for (let chunkX=-Math.floor(renderDistance/2); chunkX<Math.floor(renderDistance/2); chunkX++) {
+                for (let chunkY=-Math.floor(renderDistance/2); chunkY<Math.floor(renderDistance/2); chunkY++) {
+                    if (Math.sqrt(chunkX*chunkX+chunkY*chunkY) > renderDistance) continue
+                    let x = getBlockChunk(camPos)[0] + chunkX
+                    let y = getBlockChunk(camPos)[1] + chunkY
+        
+                    createChunk(x, y)
+                }
+            }
+            updateBlockVertices()
         }
 
         // Create encoder
