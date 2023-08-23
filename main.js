@@ -37,7 +37,7 @@ canvasUi.addEventListener("mousedown", async e => {
 });
 
 const blockSize = 1
-const renderDistance = 12
+const renderDistance = 16
 const chunkSize = 16
 
 let chunks = {}
@@ -250,7 +250,66 @@ function createBlockVertices([x, y, z], id, textureSize) {
     }
 }
 
-function updateBlockVertices(chunksToUpdate) {
+function updateChunkBlockVertices(chunkX, chunkY) {
+    let playerChunk = getBlockChunk(camPos)
+    let chunkName = `${chunkX} ${chunkY}`
+    if (Math.sqrt((chunkX-playerChunk[0])**2+(chunkY-playerChunk[1])**2) >= renderDistance/2) {
+        vArrays[chunkName] = []
+        visableBlocks[chunkName] = []
+        delete vArrays[chunkName]
+        delete visableBlocks[chunkName]
+        return
+    }
+    let blockArray = getChunk(chunkX, chunkY)
+    let vArray = []
+    visableBlocks[chunkName] = []
+
+    if (!blockArray) return
+    let blockArrayL = getChunk(chunkX-1, chunkY)
+    let blockArrayR = getChunk(chunkX+1, chunkY)
+    let blockArrayF = getChunk(chunkX, chunkY+1)
+    let blockArrayB = getChunk(chunkX, chunkY-1)
+
+    for (let y=0; y<blockArray.length; y++) {
+        for (let x=0; x<blockArray[y].length; x++) {
+            for (let z=0; z<blockArray[y][x].length; z++) {
+                let id = blockArray[y][x][z]
+                if (id == 0) continue
+
+                let idU = blockArray[y+1] && blockArray[y+1][x][z]
+                let idD = blockArray[y-1] && blockArray[y-1][x][z]
+                let idR = blockArray[y][x+1] && blockArray[y][x+1][z]
+                let idL = blockArray[y][x-1] && blockArray[y][x-1][z]
+                let idF = blockArray[y][x][z+1]
+                let idB = blockArray[y][x][z-1]
+
+                if (idR == undefined) idR = blockArrayR && blockArrayR[y].at(0)[z]
+                if (idL == undefined) idL = blockArrayL && blockArrayL[y].at(-1)[z]
+                if (idF == undefined) idF = blockArrayF && blockArrayF[y][x].at(0)
+                if (idB == undefined) idB = blockArrayB && blockArrayB[y][x].at(-1)
+
+                if (!idU || !idD || !idL || !idR || !idF || !idB) {
+                    let block = [x+(chunkX)*chunkSize, y, z+(chunkY)*chunkSize]
+
+                    let blockV = createBlockVertices(block, id, 16)
+
+                    visableBlocks[chunkName].push([x+(chunkX)*chunkSize, y, z+(chunkY)*chunkSize])
+
+                    if (!idU) vArray.push(...blockV.top)
+                    if (!idD) vArray.push(...blockV.bottom)
+                    if (!idL) vArray.push(...blockV.left)
+                    if (!idR) vArray.push(...blockV.right)
+                    if (!idF) vArray.push(...blockV.front)
+                    if (!idB) vArray.push(...blockV.back)
+                }
+            }
+        }
+    }
+
+    vArrays[chunkName] = vArray
+}
+
+function updateChunksBlockVertices(chunksToUpdate) {
     let playerChunk = getBlockChunk(camPos)
 
     if (chunksToUpdate == undefined) {
@@ -266,60 +325,7 @@ function updateBlockVertices(chunksToUpdate) {
     }
 
     for (const [chunkX, chunkY] of chunksToUpdate) {
-        let chunkName = `${chunkX} ${chunkY}`
-        if (Math.sqrt((chunkX-playerChunk[0])**2+(chunkY-playerChunk[1])**2) >= renderDistance/2) {
-            vArrays[chunkName] = []
-            visableBlocks[chunkName] = []
-            delete vArrays[chunkName]
-            delete visableBlocks[chunkName]
-            continue
-        }
-        let blockArray = getChunk(chunkX, chunkY)
-        let vArray = []
-        visableBlocks[chunkName] = []
-
-        if (!blockArray) continue
-        let blockArrayL = getChunk(chunkX-1, chunkY)
-        let blockArrayR = getChunk(chunkX+1, chunkY)
-        let blockArrayF = getChunk(chunkX, chunkY+1)
-        let blockArrayB = getChunk(chunkX, chunkY-1)
-
-        for (let y=0; y<blockArray.length; y++) {
-            for (let x=0; x<blockArray[y].length; x++) {
-                for (let z=0; z<blockArray[y][x].length; z++) {
-                    let id = blockArray[y][x][z]
-                    if (id == 0) continue
-                    let idU = blockArray[y+1] && blockArray[y+1][x][z]
-                    let idD = blockArray[y-1] && blockArray[y-1][x][z]
-                    let idR = blockArray[y][x+1] && blockArray[y][x+1][z]
-                    let idL = blockArray[y][x-1] && blockArray[y][x-1][z]
-                    let idF = blockArray[y][x][z+1]
-                    let idB = blockArray[y][x][z-1]
-
-                    if (idR == undefined) idR = blockArrayR && blockArrayR[y].at(0)[z]
-                    if (idL == undefined) idL = blockArrayL && blockArrayL[y].at(-1)[z]
-                    if (idF == undefined) idF = blockArrayF && blockArrayF[y][x].at(0)
-                    if (idB == undefined) idB = blockArrayB && blockArrayB[y][x].at(-1)
-
-                    if (idU || idD || idL || idR || idF || idB) {
-                        let block = [x+(chunkX)*chunkSize, y, z+(chunkY)*chunkSize]
-
-                        let blockV = createBlockVertices(block, id, 16)
-
-                        visableBlocks[chunkName].push([x+(chunkX)*chunkSize, y, z+(chunkY)*chunkSize])
-
-                        if (!idU) vArray.push(...blockV.top)
-                        if (!idD) vArray.push(...blockV.bottom)
-                        if (!idL) vArray.push(...blockV.left)
-                        if (!idR) vArray.push(...blockV.right)
-                        if (!idF) vArray.push(...blockV.front)
-                        if (!idB) vArray.push(...blockV.back)
-                    }
-                }
-            }
-        }
-
-        vArrays[chunkName] = vArray
+        updateChunkBlockVertices(chunkX, chunkY)
     }
 }
 
@@ -411,38 +417,16 @@ function getChunkRelPos([x, y, z], [chunkX, chunkY]) {
 
 function createChunk(chunkX, chunkY) {
     if (getChunk(chunkX, chunkY)) return
-    let blockArray = []
+    let blockArray = Array(64).fill(null).map(_=>Array(chunkSize).fill(null).map(_=>Array(chunkSize).fill(0)))
 
-    for (let y=0; y<64; y++) {
-        let layer = []
-        for (let x=0; x<chunkSize; x++) {
-            let row = []
-            for (let z=0; z<chunkSize; z++) {
-                row.push(2)
-            }
-            layer.push(row)
-        }
-        blockArray.push(layer)
-    }
-    let layer = []
     for (let x=0; x<chunkSize; x++) {
-        let row = []
         for (let z=0; z<chunkSize; z++) {
-            row.push(1)
-        }
-        layer.push(row)
-    }
-    blockArray.push(layer)
-    for (let y=0; y<64; y++) {
-        let layer = []
-        for (let x=0; x<chunkSize; x++) {
-            let row = []
-            for (let z=0; z<chunkSize; z++) {
-                row.push(0)
+            const columnHeight = 50+Math.floor((Math.sin((chunkX*chunkSize+x)/30)*5 + Math.sin((chunkY*chunkSize+z)/40)*5))
+            for (let y=0; y<columnHeight; y++) {
+                blockArray[y][x][z] = 2
             }
-            layer.push(row)
+            blockArray[columnHeight][x][z] = 1
         }
-        blockArray.push(layer)
     }
 
     chunks[`${chunkX} ${chunkY}`] = blockArray
@@ -551,7 +535,7 @@ fetchUtils().then(([adapter, device, shaderSource, diffuseImage]) => {
         },
         primitive: {
             topology: "triangle-list",
-            cullMode: 'back'
+            cullMode: "back"
         },
         depthStencil: {
             depthWriteEnabled: true,
@@ -614,17 +598,23 @@ fetchUtils().then(([adapter, device, shaderSource, diffuseImage]) => {
             createChunk(x, y)
         }
     }
-    updateBlockVertices()
+    updateChunksBlockVertices()
     
     let tick = 1
     let lastTime = 0
+    let fps = 0
+    let runningFps = 0
     setInterval(() => {
         deltaTime = performance.now() - lastTime
         lastTime = performance.now()
         
         ctx2D.reset()
         
-        let fps = Math.round(1/deltaTime*10000)/10
+        runningFps += 1/deltaTime*1000
+        if (tick % 15 == 0) {
+            fps = Math.round(runningFps/15)
+            runningFps = 0
+        }
         
         let camToWorldMat = mat4.rotateZYX(mat4.translation(camPos), camRot)
         
@@ -639,12 +629,12 @@ fetchUtils().then(([adapter, device, shaderSource, diffuseImage]) => {
                 
                 getChunk(...blockChunk)[block[1]][block[0]][block[2]] = 0
 
-                if (block[0] == 0) updateBlockVertices([[blockChunk[0]-1, blockChunk[1]]])
-                if (block[0] == chunkSize-1) updateBlockVertices([[blockChunk[0]+1, blockChunk[1]]])
-                if (block[2] == 0) updateBlockVertices([[blockChunk[0], blockChunk[1]-1]])
-                if (block[2] == chunkSize-1) updateBlockVertices([[blockChunk[0], blockChunk[1]+1]])
+                if (block[0] == 0) updateChunkBlockVertices(blockChunk[0]-1, blockChunk[1])
+                if (block[0] == chunkSize-1) updateChunkBlockVertices(blockChunk[0]+1, blockChunk[1])
+                if (block[2] == 0) updateChunkBlockVertices(blockChunk[0], blockChunk[1]-1)
+                if (block[2] == chunkSize-1) updateChunkBlockVertices(blockChunk[0], blockChunk[1]+1)
 
-                updateBlockVertices([blockChunk])
+                updateChunkBlockVertices(...blockChunk)
             }
         }
         if (rightClicked) {
@@ -665,15 +655,14 @@ fetchUtils().then(([adapter, device, shaderSource, diffuseImage]) => {
 
                 getChunk(...blockChunk)[relBlock[1]][relBlock[0]][relBlock[2]] = 3
                 
-                if (relBlock[0] == 0) updateBlockVertices([[blockChunk[0]+1, blockChunk[1]]])
-                if (relBlock[0] == chunkSize) updateBlockVertices([[blockChunk[0]-1, blockChunk[1]]])
-                if (relBlock[2] == 0) updateBlockVertices([[blockChunk[0], blockChunk[1]+1]])
-                if (relBlock[2] == chunkSize) updateBlockVertices([[blockChunk[0], blockChunk[1]-1]])
+                if (relBlock[0] == 0        ) updateChunkBlockVertices(blockChunk[0]+1, blockChunk[1])
+                if (relBlock[0] == chunkSize) updateChunkBlockVertices(blockChunk[0]-1, blockChunk[1])
+                if (relBlock[2] == 0        ) updateChunkBlockVertices(blockChunk[0], blockChunk[1]+1)
+                if (relBlock[2] == chunkSize) updateChunkBlockVertices(blockChunk[0], blockChunk[1]-1)
                 
-                updateBlockVertices([blockChunk])
+                updateChunkBlockVertices(...blockChunk)
             }
         }
-        
         
         let oldPos = getBlockChunk(camPos)
         
@@ -716,6 +705,10 @@ fetchUtils().then(([adapter, device, shaderSource, diffuseImage]) => {
                         createChunk(x, y)
                         
                         chunksToUpdate.push([x, y])
+                        chunksToUpdate.push([x+1, y+1])
+                        chunksToUpdate.push([x+1, y-1])
+                        chunksToUpdate.push([x-1, y+1])
+                        chunksToUpdate.push([x-1, y-1])
                     }
                 }
             }
@@ -729,7 +722,7 @@ fetchUtils().then(([adapter, device, shaderSource, diffuseImage]) => {
                 }
             }
 
-            updateBlockVertices(chunksToUpdate)
+            updateChunksBlockVertices(chunksToUpdate)
         }
         
         // Create encoder
@@ -741,7 +734,7 @@ fetchUtils().then(([adapter, device, shaderSource, diffuseImage]) => {
         if (highlightedBlock) {
             device.queue.writeBuffer(highligtedBuffer, 0, new Int32Array(highlightedBlock))
         } else {
-            device.queue.writeBuffer(highligtedBuffer, 0, new Int32Array([0, -Infinity, 0]))
+            device.queue.writeBuffer(highligtedBuffer, 0, new Int32Array([0, -1, 0]))
         }
         
         // Init pass encoder
