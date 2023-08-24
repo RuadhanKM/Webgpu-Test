@@ -38,12 +38,11 @@ canvasUi.addEventListener("mousedown", async e => {
 
 const blockSize = 1
 const renderDistance = 10
-const chunkSize = 16
+const chunkSize = 24
 
-let chunks = {}
+const chunks = {}
 let vArrays = {}
 let visableBlocks = {}
-let loadedChunks = []
 
 function createBlockVertices([x, y, z], id, textureSize) {
     id--
@@ -254,8 +253,6 @@ function createBlockVertices([x, y, z], id, textureSize) {
 function updateChunkBlockVertices(chunkX, chunkY, chunkZ) {
     let chunkName = getChunkNameFromPos(chunkX, chunkY, chunkZ)
     if (!chunkInRenderDis(chunkX, chunkY, chunkZ)) {
-        vArrays[chunkName] = []
-        visableBlocks[chunkName] = []
         delete vArrays[chunkName]
         delete visableBlocks[chunkName]
         return
@@ -265,16 +262,16 @@ function updateChunkBlockVertices(chunkX, chunkY, chunkZ) {
     visableBlocks[chunkName] = []
 
     if (!blockArray) return
-    let blockArrayL = getChunk(chunkX-1, chunkY, chunkZ)
     let blockArrayR = getChunk(chunkX+1, chunkY, chunkZ)
-    let blockArrayD = getChunk(chunkX, chunkY-1, chunkZ)
+    let blockArrayL = getChunk(chunkX-1, chunkY, chunkZ)
     let blockArrayU = getChunk(chunkX, chunkY+1, chunkZ)
-    let blockArrayB = getChunk(chunkX, chunkY, chunkZ-1)
+    let blockArrayD = getChunk(chunkX, chunkY-1, chunkZ)
     let blockArrayF = getChunk(chunkX, chunkY, chunkZ+1)
+    let blockArrayB = getChunk(chunkX, chunkY, chunkZ-1)
 
-    for (let y=0; y<blockArray.length; y++) {
-        for (let x=0; x<blockArray[y].length; x++) {
-            for (let z=0; z<blockArray[y][x].length; z++) {
+    for (let y=0; y<chunkSize; y++) {
+        for (let x=0; x<chunkSize; x++) {
+            for (let z=0; z<chunkSize; z++) {
                 let id = blockArray[y][x][z]
                 if (id == 0) continue
 
@@ -285,32 +282,32 @@ function updateChunkBlockVertices(chunkX, chunkY, chunkZ) {
                 let idF = blockArray[y][x][z+1]
                 let idB = blockArray[y][x][z-1]
 
-                if (idU == undefined) idU = blockArrayU && blockArrayU.at( 0)[x][z]
-                if (idD == undefined) idD = blockArrayD && blockArrayD.at(-1)[x][z]
-                if (idR == undefined) idR = blockArrayR && blockArrayR[y].at( 0)[z]
-                if (idL == undefined) idL = blockArrayL && blockArrayL[y].at(-1)[z]
-                if (idF == undefined) idF = blockArrayF && blockArrayF[y][x].at( 0)
-                if (idB == undefined) idB = blockArrayB && blockArrayB[y][x].at(-1)
+                if (idU == undefined) idU = blockArrayU && blockArrayU[0][x][z]
+                if (idD == undefined) idD = blockArrayD && blockArrayD[chunkSize-1][x][z]
+                if (idR == undefined) idR = blockArrayR && blockArrayR[y][0][z]
+                if (idL == undefined) idL = blockArrayL && blockArrayL[y][chunkSize-1][z]
+                if (idF == undefined) idF = blockArrayF && blockArrayF[y][x][0]
+                if (idB == undefined) idB = blockArrayB && blockArrayB[y][x][chunkSize-1]
 
-                if (!idU || !idD || !idL || !idR || !idF || !idB) {
+                if (idU == 0 || idD == 0 || idL == 0 || idR == 0 || idF == 0 || idB == 0) {
                     let block = [x+(chunkX)*chunkSize, y+(chunkY)*chunkSize, z+(chunkZ)*chunkSize]
 
                     let blockV = createBlockVertices(block, id, 16)
 
                     visableBlocks[chunkName].push([x+(chunkX)*chunkSize, y+(chunkY)*chunkSize, z+(chunkZ)*chunkSize])
 
-                    if (!idU) vArray.push(...blockV.top)
-                    if (!idD) vArray.push(...blockV.bottom)
-                    if (!idL) vArray.push(...blockV.left)
-                    if (!idR) vArray.push(...blockV.right)
-                    if (!idF) vArray.push(...blockV.front)
-                    if (!idB) vArray.push(...blockV.back)
+                    if (idU == 0) vArray.push(...blockV.top)
+                    if (idD == 0) vArray.push(...blockV.bottom)
+                    if (idL == 0) vArray.push(...blockV.left)
+                    if (idR == 0) vArray.push(...blockV.right)
+                    if (idF == 0) vArray.push(...blockV.front)
+                    if (idB == 0) vArray.push(...blockV.back)
                 }
             }
         }
     }
 
-    if (vArray.length > 0) vArrays[chunkName] = vArray
+    if (vArray.length > 0) vArrays[chunkName] = new Float32Array(vArray)
 }
 
 function updateChunksBlockVertices(chunksToUpdate) {
@@ -436,14 +433,18 @@ function chunkInRenderDis(chunkX, chunkY, chunkZ) {
 
 function createChunk(chunkX, chunkY, chunkZ) {
     if (getChunk(chunkX, chunkY, chunkZ)) return
-    let blockArray = Array(chunkSize).fill(null).map(_=>Array(chunkSize).fill(null).map(_=>Array(chunkSize).fill(0)))
+    let blockArray = new ArrayBuffer(chunkSize)
 
-    for (let x=0; x<chunkSize; x++) {
-        for (let z=0; z<chunkSize; z++) {
-            for (let y=0; y<chunkSize; y++) {
-                blockArray[y][x][z] = y+chunkY*chunkSize < 0 ? 2 : y+chunkY*chunkSize == 0 ? 1 : 0
+    for (let y=0; y<chunkSize; y++) {
+        let layer = new ArrayBuffer(chunkSize)
+        for (let x=0; x<chunkSize; x++) {
+            let row = new ArrayBuffer(chunkSize)
+            for (let z=0; z<chunkSize; z++) {
+                row[z] = y+chunkY*chunkSize < 0 ? 2 : y+chunkY*chunkSize == 0 ? 1 : 0
             }
+            layer[x] = row
         }
+        blockArray[y] = layer
     }
 
     chunks[getChunkNameFromPos(chunkX, chunkY, chunkZ)] = blockArray
@@ -719,7 +720,13 @@ fetchUtils().then(([adapter, device, shaderSource, diffuseImage]) => {
         
         if (oldPos[0] != newPos[0] || oldPos[1] != newPos[1] || oldPos[2] != newPos[2]) {
             let chunksToUpdate = {}
-
+            
+            for (const chunkName in visableBlocks) {
+                let chunkPos = getChunkPosFromName(chunkName)
+                
+                if (!chunkInRenderDis(...chunkPos)) updateChunkBlockVertices(...chunkPos)
+            }
+            
             for (let chunkX=-Math.floor(renderDistance/2); chunkX<Math.floor(renderDistance/2); chunkX++) {
                 for (let chunkY=-Math.floor(renderDistance/2); chunkY<Math.floor(renderDistance/2); chunkY++) {
                     for (let chunkZ=-Math.floor(renderDistance/2); chunkZ<Math.floor(renderDistance/2); chunkZ++) {
@@ -730,23 +737,14 @@ fetchUtils().then(([adapter, device, shaderSource, diffuseImage]) => {
                         if (!chunkInRenderDis(x, y, z)) continue
 
                         createChunk(x, y, z)
-                        chunksToUpdate[getChunkNameFromPos(x, y, z)] = 1
-                        chunksToUpdate[getChunkNameFromPos(x+1, y, z)] = 1
-                        chunksToUpdate[getChunkNameFromPos(x-1, y, z)] = 1
-                        chunksToUpdate[getChunkNameFromPos(x, y+1, z)] = 1
-                        chunksToUpdate[getChunkNameFromPos(x, y-1, z)] = 1
-                        chunksToUpdate[getChunkNameFromPos(x, y, z+1)] = 1
-                        chunksToUpdate[getChunkNameFromPos(x, y, z-1)] = 1
+                        chunksToUpdate[getChunkNameFromPos(x, y, z)] = true
+                        chunksToUpdate[getChunkNameFromPos(x+1, y, z)] = true
+                        chunksToUpdate[getChunkNameFromPos(x-1, y, z)] = true
+                        chunksToUpdate[getChunkNameFromPos(x, y+1, z)] = true
+                        chunksToUpdate[getChunkNameFromPos(x, y-1, z)] = true
+                        chunksToUpdate[getChunkNameFromPos(x, y, z+1)] = true
+                        chunksToUpdate[getChunkNameFromPos(x, y, z-1)] = true
                     }
-                }
-            }
-
-            for (const chunkName in visableBlocks) {
-                let chunkPos = getChunkPosFromName(chunkName)
-
-                if (!chunkInRenderDis(...chunkPos)) {
-                    chunksToUpdate[getChunkNameFromPos(...chunkPos)] = 1
-                    continue
                 }
             }
 
@@ -771,18 +769,17 @@ fetchUtils().then(([adapter, device, shaderSource, diffuseImage]) => {
         passEncoder.setBindGroup(0, bindGroup);
         
         for (const chunkName in vArrays) {
-            const vArray = vArrays[chunkName]
+            const vArray = vArrays[chunkName].slice()
 
-            const vertices = new Float32Array(vArray)
             const vertexBuffer = device.createBuffer({
-                size: vertices.byteLength, // make it big enough to store test vertices in
+                size: vArray.byteLength, // make it big enough to store test vertices in
                 usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
             });
-            device.queue.writeBuffer(vertexBuffer, 0, vertices, 0, vertices.length);
+            device.queue.writeBuffer(vertexBuffer, 0, vArray, 0, vArray.length);
             
             passEncoder.setVertexBuffer(0, vertexBuffer);
             
-            passEncoder.draw(vertices.length/12);
+            passEncoder.draw(vArray.length/12);
         }
         
         passEncoder.end();
