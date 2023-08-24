@@ -310,7 +310,7 @@ function updateChunkBlockVertices(chunkX, chunkY, chunkZ) {
         }
     }
 
-    vArrays[chunkName] = vArray
+    if (vArray.length > 0) vArrays[chunkName] = vArray
 }
 
 function updateChunksBlockVertices(chunksToUpdate) {
@@ -741,7 +741,7 @@ fetchUtils().then(([adapter, device, shaderSource, diffuseImage]) => {
                 }
             }
 
-            for (const chunkName in vArrays) {
+            for (const chunkName in visableBlocks) {
                 let chunkPos = getChunkPosFromName(chunkName)
 
                 if (!chunkInRenderDis(...chunkPos)) {
