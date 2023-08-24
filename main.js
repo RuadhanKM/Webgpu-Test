@@ -37,8 +37,8 @@ canvasUi.addEventListener("mousedown", async e => {
 });
 
 const blockSize = 1
-const renderDistance = 6
-const chunkSize = 24
+const renderDistance = 10
+const chunkSize = 16
 
 let chunks = {}
 let vArrays = {}
@@ -356,7 +356,10 @@ function getBlockLook(camToWorldMat) {
     let face
     
     let playerChunk = getBlockChunk(camPos)
-
+    
+    let L1 = camPos
+    let L2 = vec3.add(camPos, vec3.mul(lineDirection, -12))
+    
     for (const chunkName in visableBlocks) {
         let [chunkX, chunkY, chunkZ] = getChunkPosFromName(chunkName)
 
@@ -369,9 +372,6 @@ function getBlockLook(camToWorldMat) {
             if (Math.abs(y-camPos[1]) > minDis) continue
             if (Math.abs(z-camPos[2]) > minDis) continue
             if (vec3.dis([x, y, z], camPos) > minDis) continue
-
-            let L1 = camPos
-            let L2 = vec3.add(camPos, vec3.mul(lineDirection, -12))
 
             let B1 = [x-0.5, y-0.5, z-0.5]
             let B2 = [x+0.5, y+0.5, z+0.5]
@@ -642,7 +642,7 @@ fetchUtils().then(([adapter, device, shaderSource, diffuseImage]) => {
         
         if (leftClicked) {
             leftClicked = false
-            
+
             if (highlightedBlock) {
                 let blockChunk = getBlockChunk(highlightedBlock)
                 let block = getChunkRelPos(highlightedBlock, blockChunk)
@@ -718,7 +718,7 @@ fetchUtils().then(([adapter, device, shaderSource, diffuseImage]) => {
         let newPos = getBlockChunk(camPos)
         
         if (oldPos[0] != newPos[0] || oldPos[1] != newPos[1] || oldPos[2] != newPos[2]) {
-            let chunksToUpdate = []
+            let chunksToUpdate = {}
 
             for (let chunkX=-Math.floor(renderDistance/2); chunkX<Math.floor(renderDistance/2); chunkX++) {
                 for (let chunkY=-Math.floor(renderDistance/2); chunkY<Math.floor(renderDistance/2); chunkY++) {
@@ -730,13 +730,13 @@ fetchUtils().then(([adapter, device, shaderSource, diffuseImage]) => {
                         if (!chunkInRenderDis(x, y, z)) continue
 
                         createChunk(x, y, z)
-                        chunksToUpdate.push([x, y, z])
-                        chunksToUpdate.push([x+1, y, z])
-                        chunksToUpdate.push([x-1, y, z])
-                        chunksToUpdate.push([x, y+1, z])
-                        chunksToUpdate.push([x, y-1, z])
-                        chunksToUpdate.push([x, y, z+1])
-                        chunksToUpdate.push([x, y, z-1])
+                        chunksToUpdate[getChunkNameFromPos(x, y, z)] = 1
+                        chunksToUpdate[getChunkNameFromPos(x+1, y, z)] = 1
+                        chunksToUpdate[getChunkNameFromPos(x-1, y, z)] = 1
+                        chunksToUpdate[getChunkNameFromPos(x, y+1, z)] = 1
+                        chunksToUpdate[getChunkNameFromPos(x, y-1, z)] = 1
+                        chunksToUpdate[getChunkNameFromPos(x, y, z+1)] = 1
+                        chunksToUpdate[getChunkNameFromPos(x, y, z-1)] = 1
                     }
                 }
             }
@@ -745,12 +745,12 @@ fetchUtils().then(([adapter, device, shaderSource, diffuseImage]) => {
                 let chunkPos = getChunkPosFromName(chunkName)
 
                 if (!chunkInRenderDis(...chunkPos)) {
-                    chunksToUpdate.push(chunkPos)
+                    chunksToUpdate[getChunkNameFromPos(...chunkPos)] = 1
                     continue
                 }
             }
 
-            updateChunksBlockVertices(chunksToUpdate)
+            updateChunksBlockVertices(Object.keys(chunksToUpdate).map(getChunkPosFromName))
         }
         
         // Create encoder
