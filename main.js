@@ -17,7 +17,7 @@ function fetchUtils() {
     }).catch(reject))
 }
 
-let camPos = [0, 70, 0]
+let camPos = [0, 5, 0]
 let camRot = [0, 0, 0]
 let keys = {}
 let leftClicked = false
@@ -37,12 +37,13 @@ canvasUi.addEventListener("mousedown", async e => {
 });
 
 const blockSize = 1
-const renderDistance = 16
-const chunkSize = 16
+const renderDistance = 6
+const chunkSize = 24
 
 let chunks = {}
 let vArrays = {}
 let visableBlocks = {}
+let loadedChunks = []
 
 function createBlockVertices([x, y, z], id, textureSize) {
     id--
@@ -250,25 +251,26 @@ function createBlockVertices([x, y, z], id, textureSize) {
     }
 }
 
-function updateChunkBlockVertices(chunkX, chunkY) {
-    let playerChunk = getBlockChunk(camPos)
-    let chunkName = `${chunkX} ${chunkY}`
-    if (Math.sqrt((chunkX-playerChunk[0])**2+(chunkY-playerChunk[1])**2) >= renderDistance/2) {
+function updateChunkBlockVertices(chunkX, chunkY, chunkZ) {
+    let chunkName = getChunkNameFromPos(chunkX, chunkY, chunkZ)
+    if (!chunkInRenderDis(chunkX, chunkY, chunkZ)) {
         vArrays[chunkName] = []
         visableBlocks[chunkName] = []
         delete vArrays[chunkName]
         delete visableBlocks[chunkName]
         return
     }
-    let blockArray = getChunk(chunkX, chunkY)
+    let blockArray = getChunk(chunkX, chunkY, chunkZ)
     let vArray = []
     visableBlocks[chunkName] = []
 
     if (!blockArray) return
-    let blockArrayL = getChunk(chunkX-1, chunkY)
-    let blockArrayR = getChunk(chunkX+1, chunkY)
-    let blockArrayF = getChunk(chunkX, chunkY+1)
-    let blockArrayB = getChunk(chunkX, chunkY-1)
+    let blockArrayL = getChunk(chunkX-1, chunkY, chunkZ)
+    let blockArrayR = getChunk(chunkX+1, chunkY, chunkZ)
+    let blockArrayD = getChunk(chunkX, chunkY-1, chunkZ)
+    let blockArrayU = getChunk(chunkX, chunkY+1, chunkZ)
+    let blockArrayB = getChunk(chunkX, chunkY, chunkZ-1)
+    let blockArrayF = getChunk(chunkX, chunkY, chunkZ+1)
 
     for (let y=0; y<blockArray.length; y++) {
         for (let x=0; x<blockArray[y].length; x++) {
@@ -283,17 +285,19 @@ function updateChunkBlockVertices(chunkX, chunkY) {
                 let idF = blockArray[y][x][z+1]
                 let idB = blockArray[y][x][z-1]
 
-                if (idR == undefined) idR = blockArrayR && blockArrayR[y].at(0)[z]
+                if (idU == undefined) idU = blockArrayU && blockArrayU.at( 0)[x][z]
+                if (idD == undefined) idD = blockArrayD && blockArrayD.at(-1)[x][z]
+                if (idR == undefined) idR = blockArrayR && blockArrayR[y].at( 0)[z]
                 if (idL == undefined) idL = blockArrayL && blockArrayL[y].at(-1)[z]
-                if (idF == undefined) idF = blockArrayF && blockArrayF[y][x].at(0)
+                if (idF == undefined) idF = blockArrayF && blockArrayF[y][x].at( 0)
                 if (idB == undefined) idB = blockArrayB && blockArrayB[y][x].at(-1)
 
                 if (!idU || !idD || !idL || !idR || !idF || !idB) {
-                    let block = [x+(chunkX)*chunkSize, y, z+(chunkY)*chunkSize]
+                    let block = [x+(chunkX)*chunkSize, y+(chunkY)*chunkSize, z+(chunkZ)*chunkSize]
 
                     let blockV = createBlockVertices(block, id, 16)
 
-                    visableBlocks[chunkName].push([x+(chunkX)*chunkSize, y, z+(chunkY)*chunkSize])
+                    visableBlocks[chunkName].push([x+(chunkX)*chunkSize, y+(chunkY)*chunkSize, z+(chunkZ)*chunkSize])
 
                     if (!idU) vArray.push(...blockV.top)
                     if (!idD) vArray.push(...blockV.bottom)
@@ -318,14 +322,16 @@ function updateChunksBlockVertices(chunksToUpdate) {
         chunksToUpdate = []
         for (let chunkX=(-renderDistance/2+playerChunk[0]); chunkX<=(renderDistance/2+playerChunk[0]); chunkX++) {
             for (let chunkY=(-renderDistance/2+playerChunk[1]); chunkY<=(renderDistance/2+playerChunk[1]); chunkY++) {
-                if (Math.sqrt((chunkX-playerChunk[0])**2+(chunkY-playerChunk[1])**2) > renderDistance/2) continue
-                chunksToUpdate.push([chunkX, chunkY])
+                for (let chunkZ=(-renderDistance/2+playerChunk[2]); chunkZ<=(renderDistance/2+playerChunk[2]); chunkZ++) {
+                    if (!chunkInRenderDis(chunkX, chunkY, chunkZ)) continue
+                    chunksToUpdate.push([chunkX, chunkY, chunkZ])
+                }
             }
         }
     }
 
-    for (const [chunkX, chunkY] of chunksToUpdate) {
-        updateChunkBlockVertices(chunkX, chunkY)
+    for (const [chunkX, chunkY, chunkZ] of chunksToUpdate) {
+        updateChunkBlockVertices(chunkX, chunkY, chunkZ)
     }
 }
 
@@ -352,11 +358,11 @@ function getBlockLook(camToWorldMat) {
     let playerChunk = getBlockChunk(camPos)
 
     for (const chunkName in visableBlocks) {
-        let chunkX = parseInt(chunkName.split(" ")[0])
-        let chunkY = parseInt(chunkName.split(" ")[1])
+        let [chunkX, chunkY, chunkZ] = getChunkPosFromName(chunkName)
 
         if (Math.abs(chunkX - playerChunk[0]) > 1) continue
         if (Math.abs(chunkY - playerChunk[1]) > 1) continue
+        if (Math.abs(chunkZ - playerChunk[2]) > 1) continue
 
         for (const [x, y, z] of visableBlocks[chunkName]) {
             if (Math.abs(x-camPos[0]) > minDis) continue
@@ -407,33 +413,44 @@ function getBlockLook(camToWorldMat) {
     return [minPos, face]
 }
 
-function getChunk(chunkX, chunkY) {
-    return chunks[`${chunkX} ${chunkY}`]
+function getChunk(chunkX, chunkY, chunkZ) {
+    return chunks[getChunkNameFromPos(chunkX, chunkY, chunkZ)]
 }
 
-function getChunkRelPos([x, y, z], [chunkX, chunkY]) {
-    return [x-chunkX*chunkSize, y, z-chunkY*chunkSize]
+function getChunkRelPos([x, y, z], [chunkX, chunkY, chunkZ]) {
+    return [x-chunkX*chunkSize, y-chunkY*chunkSize, z-chunkZ*chunkSize]
 }
 
-function createChunk(chunkX, chunkY) {
-    if (getChunk(chunkX, chunkY)) return
-    let blockArray = Array(64).fill(null).map(_=>Array(chunkSize).fill(null).map(_=>Array(chunkSize).fill(0)))
+function getChunkPosFromName(chunkName) {
+    return chunkName.split(" ").map(x => parseInt(x))
+}
+
+function getChunkNameFromPos(chunkX, chunkY, chunkZ) {
+    return `${chunkX} ${chunkY} ${chunkZ}`
+}
+
+function chunkInRenderDis(chunkX, chunkY, chunkZ) {
+    let playerChunk = getBlockChunk(camPos)
+    return Math.sqrt((chunkX-playerChunk[0])**2+(chunkY-playerChunk[1])**2+(chunkZ-playerChunk[2])**2) < renderDistance/2
+}
+
+function createChunk(chunkX, chunkY, chunkZ) {
+    if (getChunk(chunkX, chunkY, chunkZ)) return
+    let blockArray = Array(chunkSize).fill(null).map(_=>Array(chunkSize).fill(null).map(_=>Array(chunkSize).fill(0)))
 
     for (let x=0; x<chunkSize; x++) {
         for (let z=0; z<chunkSize; z++) {
-            const columnHeight = 50+Math.floor((Math.sin((chunkX*chunkSize+x)/30)*5 + Math.sin((chunkY*chunkSize+z)/40)*5))
-            for (let y=0; y<columnHeight; y++) {
-                blockArray[y][x][z] = 2
+            for (let y=0; y<chunkSize; y++) {
+                blockArray[y][x][z] = y+chunkY*chunkSize < 0 ? 2 : y+chunkY*chunkSize == 0 ? 1 : 0
             }
-            blockArray[columnHeight][x][z] = 1
         }
     }
 
-    chunks[`${chunkX} ${chunkY}`] = blockArray
+    chunks[getChunkNameFromPos(chunkX, chunkY, chunkZ)] = blockArray
 }
 
 function getBlockChunk([x, y, z]) {
-    return [Math.floor(x / chunkSize), Math.floor(z / chunkSize)]
+    return [Math.floor(x / chunkSize), Math.floor(y / chunkSize), Math.floor(z / chunkSize)]
 }
 
 fetchUtils().then(([adapter, device, shaderSource, diffuseImage]) => {
@@ -591,11 +608,14 @@ fetchUtils().then(([adapter, device, shaderSource, diffuseImage]) => {
 
     for (let chunkX=-Math.floor(renderDistance/2); chunkX<Math.floor(renderDistance/2); chunkX++) {
         for (let chunkY=-Math.floor(renderDistance/2); chunkY<Math.floor(renderDistance/2); chunkY++) {
-            if (Math.sqrt(chunkX*chunkX+chunkY*chunkY) > renderDistance) continue
-            let x = getBlockChunk(camPos)[0] + chunkX
-            let y = getBlockChunk(camPos)[1] + chunkY
+            for (let chunkZ=-Math.floor(renderDistance/2); chunkZ<Math.floor(renderDistance/2); chunkZ++) {
+                let x = getBlockChunk(camPos)[0] + chunkX
+                let y = getBlockChunk(camPos)[1] + chunkY
+                let z = getBlockChunk(camPos)[2] + chunkZ
+                if (!chunkInRenderDis(x, y, z)) continue
             
-            createChunk(x, y)
+                createChunk(x, y, z)
+            }
         }
     }
     updateChunksBlockVertices()
@@ -629,10 +649,12 @@ fetchUtils().then(([adapter, device, shaderSource, diffuseImage]) => {
                 
                 getChunk(...blockChunk)[block[1]][block[0]][block[2]] = 0
 
-                if (block[0] == 0) updateChunkBlockVertices(blockChunk[0]-1, blockChunk[1])
-                if (block[0] == chunkSize-1) updateChunkBlockVertices(blockChunk[0]+1, blockChunk[1])
-                if (block[2] == 0) updateChunkBlockVertices(blockChunk[0], blockChunk[1]-1)
-                if (block[2] == chunkSize-1) updateChunkBlockVertices(blockChunk[0], blockChunk[1]+1)
+                if (block[0] == 0          ) updateChunkBlockVertices(blockChunk[0]-1, blockChunk[1],   blockChunk[2]  )
+                if (block[0] == chunkSize-1) updateChunkBlockVertices(blockChunk[0]+1, blockChunk[1],   blockChunk[2]  )
+                if (block[1] == 0          ) updateChunkBlockVertices(blockChunk[0],   blockChunk[1]-1, blockChunk[2]  )
+                if (block[1] == chunkSize-1) updateChunkBlockVertices(blockChunk[0],   blockChunk[1]+1, blockChunk[2]  )
+                if (block[2] == 0          ) updateChunkBlockVertices(blockChunk[0],   blockChunk[1],   blockChunk[2]-1)
+                if (block[2] == chunkSize-1) updateChunkBlockVertices(blockChunk[0],   blockChunk[1],   blockChunk[2]+1)
 
                 updateChunkBlockVertices(...blockChunk)
             }
@@ -655,10 +677,12 @@ fetchUtils().then(([adapter, device, shaderSource, diffuseImage]) => {
 
                 getChunk(...blockChunk)[relBlock[1]][relBlock[0]][relBlock[2]] = 3
                 
-                if (relBlock[0] == 0        ) updateChunkBlockVertices(blockChunk[0]+1, blockChunk[1])
-                if (relBlock[0] == chunkSize) updateChunkBlockVertices(blockChunk[0]-1, blockChunk[1])
-                if (relBlock[2] == 0        ) updateChunkBlockVertices(blockChunk[0], blockChunk[1]+1)
-                if (relBlock[2] == chunkSize) updateChunkBlockVertices(blockChunk[0], blockChunk[1]-1)
+                if (block[0] == 0          ) updateChunkBlockVertices(blockChunk[0]-1, blockChunk[1],   blockChunk[2]  )
+                if (block[0] == chunkSize-1) updateChunkBlockVertices(blockChunk[0]+1, blockChunk[1],   blockChunk[2]  )
+                if (block[1] == 0          ) updateChunkBlockVertices(blockChunk[0],   blockChunk[1]-1, blockChunk[2]  )
+                if (block[1] == chunkSize-1) updateChunkBlockVertices(blockChunk[0],   blockChunk[1]+1, blockChunk[2]  )
+                if (block[2] == 0          ) updateChunkBlockVertices(blockChunk[0],   blockChunk[1],   blockChunk[2]-1)
+                if (block[2] == chunkSize-1) updateChunkBlockVertices(blockChunk[0],   blockChunk[1],   blockChunk[2]+1)
                 
                 updateChunkBlockVertices(...blockChunk)
             }
@@ -693,32 +717,36 @@ fetchUtils().then(([adapter, device, shaderSource, diffuseImage]) => {
         
         let newPos = getBlockChunk(camPos)
         
-        if (oldPos[0] != newPos[0] || oldPos[1] != newPos[1]) {
+        if (oldPos[0] != newPos[0] || oldPos[1] != newPos[1] || oldPos[2] != newPos[2]) {
             let chunksToUpdate = []
 
             for (let chunkX=-Math.floor(renderDistance/2); chunkX<Math.floor(renderDistance/2); chunkX++) {
                 for (let chunkY=-Math.floor(renderDistance/2); chunkY<Math.floor(renderDistance/2); chunkY++) {
-                    let x = newPos[0] + chunkX
-                    let y = newPos[1] + chunkY
-                    if (vArrays[`${x} ${y}`] != undefined) continue
-                    if (Math.sqrt(chunkX**2+chunkY**2) < renderDistance/2) {
-                        createChunk(x, y)
-                        
-                        chunksToUpdate.push([x, y])
-                        chunksToUpdate.push([x+1, y+1])
-                        chunksToUpdate.push([x+1, y-1])
-                        chunksToUpdate.push([x-1, y+1])
-                        chunksToUpdate.push([x-1, y-1])
+                    for (let chunkZ=-Math.floor(renderDistance/2); chunkZ<Math.floor(renderDistance/2); chunkZ++) {
+                        let x = newPos[0] + chunkX
+                        let y = newPos[1] + chunkY
+                        let z = newPos[2] + chunkZ
+                        if (vArrays[getChunkNameFromPos(x, y, z)] != undefined) continue
+                        if (!chunkInRenderDis(x, y, z)) continue
+
+                        createChunk(x, y, z)
+                        chunksToUpdate.push([x, y, z])
+                        chunksToUpdate.push([x+1, y, z])
+                        chunksToUpdate.push([x-1, y, z])
+                        chunksToUpdate.push([x, y+1, z])
+                        chunksToUpdate.push([x, y-1, z])
+                        chunksToUpdate.push([x, y, z+1])
+                        chunksToUpdate.push([x, y, z-1])
                     }
                 }
             }
-            let currentEntries = JSON.stringify(chunksToUpdate)
-            for (const chunkName in vArrays) {
-                let chunkX = parseInt(chunkName.split(" ")[0])
-                let chunkY = parseInt(chunkName.split(" ")[1])
 
-                if (Math.sqrt((chunkX-newPos[0])**2+(chunkY-newPos[1])**2) >= renderDistance/2) {
-                    if (currentEntries.indexOf(JSON.stringify([chunkX, chunkY])) == -1) chunksToUpdate.push([chunkX, chunkY])
+            for (const chunkName in vArrays) {
+                let chunkPos = getChunkPosFromName(chunkName)
+
+                if (!chunkInRenderDis(...chunkPos)) {
+                    chunksToUpdate.push(chunkPos)
+                    continue
                 }
             }
 
