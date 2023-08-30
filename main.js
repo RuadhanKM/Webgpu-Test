@@ -40,6 +40,8 @@ const blockSize = 1
 const renderDistance = 6
 const chunkSize = 24
 const seed = 21
+const caveGridSize = 18
+const caveThreshold = 0.8
 
 const chunks = {}
 let vArrays = {}
@@ -294,41 +296,41 @@ function updateChunkBlockVertices(chunkX, chunkY, chunkZ) {
     let blockArrayF = getChunk(chunkX, chunkY, chunkZ+1)
     let blockArrayB = getChunk(chunkX, chunkY, chunkZ-1)
 
-    for (let y=0; y<chunkSize; y++) {
-        for (let x=0; x<chunkSize; x++) {
-            for (let z=0; z<chunkSize; z++) {
-                let id = blockArray[y][x][z]
-                if (id == 0) continue
+    for (let i=0; i<chunkSize**3; i++) {
+        let id = blockArray[i]
+        if (id == 0) continue
 
-                let idU = blockArray[y+1] && blockArray[y+1][x][z]
-                let idD = blockArray[y-1] && blockArray[y-1][x][z]
-                let idR = blockArray[y][x+1] && blockArray[y][x+1][z]
-                let idL = blockArray[y][x-1] && blockArray[y][x-1][z]
-                let idF = blockArray[y][x][z+1]
-                let idB = blockArray[y][x][z-1]
+        let y = Math.floor(i / chunkSize**2)
+        let x = Math.floor(i / chunkSize) % chunkSize
+        let z = i % chunkSize
 
-                if (idU == undefined) idU = blockArrayU && blockArrayU[0][x][z]
-                if (idD == undefined) idD = blockArrayD && blockArrayD[chunkSize-1][x][z]
-                if (idR == undefined) idR = blockArrayR && blockArrayR[y][0][z]
-                if (idL == undefined) idL = blockArrayL && blockArrayL[y][chunkSize-1][z]
-                if (idF == undefined) idF = blockArrayF && blockArrayF[y][x][0]
-                if (idB == undefined) idB = blockArrayB && blockArrayB[y][x][chunkSize-1]
+        let idU = y < chunkSize-1 && blockArray[i + chunkSize**2]
+        let idD = y > 0 && blockArray[i - chunkSize**2]
+        let idR = x < chunkSize-1 && blockArray[i + chunkSize]
+        let idL = x > 0 && blockArray[i - chunkSize]
+        let idF = z < chunkSize-1 && blockArray[i + 1]
+        let idB = z > 0 && blockArray[i - 1]
 
-                if (idU == 0 || idD == 0 || idL == 0 || idR == 0 || idF == 0 || idB == 0) {
-                    let block = [x+(chunkX)*chunkSize, y+(chunkY)*chunkSize, z+(chunkZ)*chunkSize]
+        if (idU === false) idU = blockArrayU && blockArrayU[x*chunkSize + z]
+        if (idD === false) idD = blockArrayD && blockArrayD[(chunkSize-1)*chunkSize**2 + x*chunkSize + z]
+        if (idR === false) idR = blockArrayR && blockArrayR[y*chunkSize**2 + z]
+        if (idL === false) idL = blockArrayL && blockArrayL[y*chunkSize**2 + (chunkSize-1)*chunkSize + z]
+        if (idF === false) idF = blockArrayF && blockArrayF[y*chunkSize**2 + x*chunkSize]
+        if (idB === false) idB = blockArrayB && blockArrayB[y*chunkSize**2 + x*chunkSize + (chunkSize-1)]
 
-                    let blockV = createBlockVertices(block, id, 16)
+        if (idU == 0 || idD == 0 || idL == 0 || idR == 0 || idF == 0 || idB == 0) {
+            let block = [x+(chunkX)*chunkSize, y+(chunkY)*chunkSize, z+(chunkZ)*chunkSize]
 
-                    visableBlocks[chunkName].push([x+(chunkX)*chunkSize, y+(chunkY)*chunkSize, z+(chunkZ)*chunkSize])
+            let blockV = createBlockVertices(block, id, 16)
 
-                    if (idU == 0) vArray.push(...blockV.top)
-                    if (idD == 0) vArray.push(...blockV.bottom)
-                    if (idL == 0) vArray.push(...blockV.left)
-                    if (idR == 0) vArray.push(...blockV.right)
-                    if (idF == 0) vArray.push(...blockV.front)
-                    if (idB == 0) vArray.push(...blockV.back)
-                }
-            }
+            visableBlocks[chunkName].push([x+(chunkX)*chunkSize, y+(chunkY)*chunkSize, z+(chunkZ)*chunkSize])
+
+            if (idU == 0) vArray.push(...blockV.top)
+            if (idD == 0) vArray.push(...blockV.bottom)
+            if (idL == 0) vArray.push(...blockV.left)
+            if (idR == 0) vArray.push(...blockV.right)
+            if (idF == 0) vArray.push(...blockV.front)
+            if (idB == 0) vArray.push(...blockV.back)
         }
     }
 
@@ -517,9 +519,8 @@ function mulberry32(a) {
 
 let cellCache = {}
 function cellNoise(x, y, z) {
-    let gridSize = 10
     let minDis = Infinity
-    let bc = vec3.div([x, y, z], gridSize).map(Math.round)
+    let bc = vec3.div([x, y, z], caveGridSize).map(Math.round)
     if (cellCache[bc]) {
         for (const p of cellCache[bc]) {
             let dis = vec3.dis(p, [x, y, z])
@@ -537,7 +538,7 @@ function cellNoise(x, y, z) {
                     let ry = mulberry32(rx*1000)
                     let rz = mulberry32(ry*1000)
 
-                    let p = [(chunk[0]+rx)*gridSize, (chunk[1]+ry)*gridSize, (chunk[2]+rz)*gridSize]
+                    let p = [(chunk[0]+rx)*caveGridSize, (chunk[1]+ry)*caveGridSize, (chunk[2]+rz)*caveGridSize]
 
                     cellCache[bc].push(p)
 
@@ -550,51 +551,28 @@ function cellNoise(x, y, z) {
     return minDis
 }
 
+let airChunk = new Uint16Array(chunkSize**3)
 
-let airLayer = new ArrayBuffer(chunkSize)
-let airChunk = new ArrayBuffer(chunkSize)
-
-for (let y=0; y<chunkSize; y++) {
-    let layer = new ArrayBuffer(chunkSize)
-    let layerRow = new ArrayBuffer(chunkSize)
-    for (let x=0; x<chunkSize; x++) {
-        let chunkRow = new ArrayBuffer(chunkSize)
-        layerRow[x] = 0
-        for (let z=0; z<chunkSize; z++) {
-            chunkRow[z] = 0
-        }
-        layer[x] = chunkRow
-    }
-    airChunk[y] = layer
-    airLayer[y] = layerRow
+for (let i=0; i<chunkSize**3; i++) {
+    airChunk[i] = 0
 }
 
 function createChunk(chunkX, chunkY, chunkZ) {
     if (getChunk(chunkX, chunkY, chunkZ)) return
     if (chunkY > Math.ceil(124/chunkSize)) {
-        return airChunk.slice()
+        chunks[getChunkNameFromPos(chunkX, chunkY, chunkZ)] = airChunk.slice()
+        return
     }
-    let blockArray = new ArrayBuffer(chunkSize)
+    let blockArray = new Uint16Array(chunkSize**3)
 
-    for (let relY=0; relY<chunkSize; relY++) {
-        let layer = new ArrayBuffer(chunkSize)
-        let y = relY+chunkY*chunkSize
-        if (y > 124) {
-            blockArray[relY] = airLayer.slice()
-        }
-        for (let relX=0; relX<chunkSize; relX++) {
-            let row = new ArrayBuffer(chunkSize)
-            let x = relX+chunkX*chunkSize
-            for (let relZ=0; relZ<chunkSize; relZ++) {
-                let z = relZ+chunkZ*chunkSize
-                
-                let height = Math.round(perlinNoise(x/250, 0, z/250) * 80 * (perlinNoise(x/300, 0, z/300) + 0.3)) + Math.round(perlinNoise(x/30, 0, z/30) * 20 * perlinNoise(x/300, 0, z/300))
+    for (let i=0; i<chunkSize**3; i++) {
+        let y = Math.floor(i / chunkSize**2) + chunkY*chunkSize
+        let x = Math.floor(i / chunkSize) % chunkSize + chunkX*chunkSize
+        let z = i % chunkSize + chunkZ*chunkSize
+        
+        let height = Math.round(perlinNoise(x/250, 0, z/250) * 80 * (perlinNoise(x/300, 0, z/300) + 0.3)) + Math.round(perlinNoise(x/30, 0, z/30) * 20 * perlinNoise(x/300, 0, z/300))
 
-                row[relZ] = (cellNoise(x, y, z) < 7.65) ? (y < height ? 2 : y == height ? 1 : 0) : 0
-            }
-            layer[relX] = row
-        }
-        blockArray[relY] = layer
+        blockArray[i] = (cellNoise(x, y, z) < caveGridSize*caveThreshold) ? (y < height ? 2 : y == height ? 1 : 0) : 0
     }
 
     chunks[getChunkNameFromPos(chunkX, chunkY, chunkZ)] = blockArray
@@ -798,7 +776,7 @@ fetchUtils().then(([adapter, device, shaderSource, diffuseImage]) => {
                 let blockChunk = getBlockChunk(highlightedBlock)
                 let block = getChunkRelPos(highlightedBlock, blockChunk)
                 
-                getChunk(...blockChunk)[block[1]][block[0]][block[2]] = 0
+                getChunk(...blockChunk)[block[1]*chunkSize**2 + block[0]*chunkSize + block[2]] = 0
 
                 if (block[0] == 0          ) updateChunkBlockVertices(blockChunk[0]-1, blockChunk[1],   blockChunk[2]  )
                 if (block[0] == chunkSize-1) updateChunkBlockVertices(blockChunk[0]+1, blockChunk[1],   blockChunk[2]  )
@@ -826,7 +804,7 @@ fetchUtils().then(([adapter, device, shaderSource, diffuseImage]) => {
                 let blockChunk = getBlockChunk(block)
                 let relBlock = getChunkRelPos(block, blockChunk)
 
-                getChunk(...blockChunk)[relBlock[1]][relBlock[0]][relBlock[2]] = 3
+                getChunk(...blockChunk)[relBlock[1]*chunkSize**2 + relBlock[0]*chunkSize + relBlock[2]] = 3
                 
                 if (block[0] == 0          ) updateChunkBlockVertices(blockChunk[0]-1, blockChunk[1],   blockChunk[2]  )
                 if (block[0] == chunkSize-1) updateChunkBlockVertices(blockChunk[0]+1, blockChunk[1],   blockChunk[2]  )
