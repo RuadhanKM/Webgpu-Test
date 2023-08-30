@@ -37,11 +37,15 @@ canvasUi.addEventListener("mousedown", async e => {
 });
 
 const blockSize = 1
-const renderDistance = 6
+const renderDistance = 8
 const chunkSize = 24
 const seed = 21
 const caveGridSize = 18
 const caveThreshold = 0.8
+
+const gravity = 1.2
+
+let pVel = [0, 0, 0]
 
 const chunks = {}
 let vArrays = {}
@@ -372,9 +376,7 @@ function InBox(Hit, B1, B2, Axis) {
     return false;
 }
 
-function getBlockLook(camToWorldMat) {
-    let lineDirection = mat4.lookVector(camToWorldMat)
-
+function getBlockLook(lineDirection) {
     let minPos
     let minDis = 8
     let face
@@ -456,6 +458,21 @@ function getChunkNameFromPos(chunkX, chunkY, chunkZ) {
 function chunkInRenderDis(chunkX, chunkY, chunkZ) {
     let playerChunk = getBlockChunk(camPos)
     return Math.sqrt((chunkX-playerChunk[0])**2+(chunkY-playerChunk[1])**2+(chunkZ-playerChunk[2])**2) < renderDistance/2
+}
+
+function chunkInView(chunkPos, lookDir) {
+    let threshold = -2
+
+    let chunkCenterPos = vec3.sub(vec3.mul(chunkPos, chunkSize), camPos)
+    if (vec3.dot(chunkCenterPos, lookDir) < threshold) return true
+    if (vec3.dot(vec3.add(chunkCenterPos, [chunkSize, 0, 0]), lookDir) < threshold) return true
+    if (vec3.dot(vec3.add(chunkCenterPos, [0, chunkSize, 0]), lookDir) < threshold) return true
+    if (vec3.dot(vec3.add(chunkCenterPos, [0, 0, chunkSize]), lookDir) < threshold) return true
+    if (vec3.dot(vec3.add(chunkCenterPos, [chunkSize, chunkSize, 0]), lookDir) < threshold) return true
+    if (vec3.dot(vec3.add(chunkCenterPos, [0, chunkSize, chunkSize]), lookDir) < threshold) return true
+    if (vec3.dot(vec3.add(chunkCenterPos, [chunkSize, 0, chunkSize]), lookDir) < threshold) return true
+    if (vec3.dot(vec3.add(chunkCenterPos, [chunkSize, chunkSize, chunkSize]), lookDir) < threshold) return true
+    return false
 }
 
 function fade(t) {
@@ -766,8 +783,9 @@ fetchUtils().then(([adapter, device, shaderSource, diffuseImage]) => {
         }
         
         let camToWorldMat = mat4.rotateZYX(mat4.translation(camPos), camRot)
+        let lookDir = mat4.lookVector(camToWorldMat)
         
-        let [highlightedBlock, face] = getBlockLook(camToWorldMat)
+        let [highlightedBlock, face] = getBlockLook(lookDir)
         
         if (leftClicked) {
             leftClicked = false
@@ -820,10 +838,9 @@ fetchUtils().then(([adapter, device, shaderSource, diffuseImage]) => {
         let oldPos = getBlockChunk(camPos)
         
         if (keys.w) {
-            let lookVector = mat4.lookVector(camToWorldMat)
-            camPos[0] -= lookVector[0]/100 * deltaTime
-            camPos[1] -= lookVector[1]/100 * deltaTime
-            camPos[2] -= lookVector[2]/100 * deltaTime
+            camPos[0] -= lookDir[0]/100 * deltaTime
+            camPos[1] -= lookDir[1]/100 * deltaTime
+            camPos[2] -= lookDir[2]/100 * deltaTime
         }
         if (keys.a) {
             let rightVector = mat4.rightVector(camToWorldMat)
@@ -832,10 +849,9 @@ fetchUtils().then(([adapter, device, shaderSource, diffuseImage]) => {
             camPos[2] -= rightVector[2]/100 * deltaTime
         }
         if (keys.s) {
-            let lookVector = mat4.lookVector(camToWorldMat)
-            camPos[0] += lookVector[0]/100 * deltaTime
-            camPos[1] += lookVector[1]/100 * deltaTime
-            camPos[2] += lookVector[2]/100 * deltaTime
+            camPos[0] += lookDir[0]/100 * deltaTime
+            camPos[1] += lookDir[1]/100 * deltaTime
+            camPos[2] += lookDir[2]/100 * deltaTime
         }
         if (keys.d) {
             let rightVector = mat4.rightVector(camToWorldMat)
@@ -895,8 +911,10 @@ fetchUtils().then(([adapter, device, shaderSource, diffuseImage]) => {
         const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);
         passEncoder.setPipeline(renderPipeline);
         passEncoder.setBindGroup(0, bindGroup);
-        
+         
         for (const chunkName in vArrays) {
+            if (!chunkInView(getChunkPosFromName(chunkName), lookDir)) continue
+
             const vArray = vArrays[chunkName].slice()
 
             const vertexBuffer = device.createBuffer({
