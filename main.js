@@ -589,7 +589,7 @@ function createChunk(chunkX, chunkY, chunkZ) {
         
         let height = Math.round(perlinNoise(x/250, 0, z/250) * 80 * (perlinNoise(x/300, 0, z/300) + 0.3)) + Math.round(perlinNoise(x/30, 0, z/30) * 20 * perlinNoise(x/300, 0, z/300))
 
-        blockArray[i] = (cellNoise(x, y, z) < caveGridSize*caveThreshold) ? (y < height ? 2 : y == height ? 1 : 0) : 0
+        blockArray[i] = (cellNoise(x, y, z) < caveGridSize*caveThreshold) ? (y < height-5 ? 2 : y == height ? 1 : y < height ? 4 : 0) : 0
     }
 
     chunks[getChunkNameFromPos(chunkX, chunkY, chunkZ)] = blockArray
