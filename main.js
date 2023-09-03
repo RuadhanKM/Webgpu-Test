@@ -8,11 +8,22 @@ function fetchUtils() {
     return new Promise((resolve, reject) => fetch("main.wgsl").then(shaderSourceFile => {
         if (!shaderSourceFile.ok) {reject(Error("Failed to fetch shader, or shader was not found!"))}
         
-        let a = new Image()
-        a.src = "diffuse.png"
+        let d = new Image()
+        d.src = "diffuse.png"
         
-        Promise.all([shaderSourceFile.text(), navigator.gpu.requestAdapter(), a.decode().then(() => createImageBitmap(a))]).then(([shaderSource, adapter, img]) => {
-            adapter.requestDevice().then(device => resolve([adapter, device, shaderSource, img])).catch(reject)
+        let s = new Image()
+        s.src = "specular.png"
+        
+        let n = new Image()
+        n.src = "normal.png"
+        
+        Promise.all([
+            shaderSourceFile.text(), 
+            navigator.gpu.requestAdapter(), 
+            d.decode().then(() => createImageBitmap(d)),
+            s.decode().then(() => createImageBitmap(s)),
+            n.decode().then(() => createImageBitmap(n))]).then(([shaderSource, adapter, dImg, sImg, nImg]) => {
+            adapter.requestDevice().then(device => resolve([adapter, device, shaderSource, dImg, sImg, nImg])).catch(reject)
         }).catch(reject)
     }).catch(reject))
 }
@@ -85,32 +96,26 @@ function createBlockVertices([x, y, z], id, textureSize) {
         top: [
             x+blockSize/2,y+blockSize/2,z-blockSize/2,1,
             textureSize,texYN,
-            0,1,0,
             x, y, z,
 
             x-blockSize/2,y+blockSize/2,z+blockSize/2,1,
             0,texYP,
-            0,1,0,
             x, y, z,
             
             x+blockSize/2,y+blockSize/2,z+blockSize/2,1,
             textureSize,texYP,
-            0,1,0,
             x, y, z,
 
             x-blockSize/2,y+blockSize/2,z-blockSize/2,1,
             0,texYN,
-            0,1,0,
             x, y, z,
 
             x-blockSize/2,y+blockSize/2,z+blockSize/2,1,
             0,texYP,
-            0,1,0,
             x, y, z,
             
             x+blockSize/2,y+blockSize/2,z-blockSize/2,1,
             textureSize,texYN,
-            0,1,0,
             x, y, z,
         ],
 
@@ -118,32 +123,32 @@ function createBlockVertices([x, y, z], id, textureSize) {
         bottom: [
             x+blockSize/2,y-blockSize/2,z+blockSize/2,1,
             textureSize*2,texYN,
-            0,-1,0,
+
             x, y, z,
 
             x-blockSize/2,y-blockSize/2,z+blockSize/2,1,
             textureSize,texYN,
-            0,-1,0,
+
             x, y, z,
             
             x+blockSize/2,y-blockSize/2,z-blockSize/2,1,
             textureSize*2,texYP,
-            0,-1,0,
+
             x, y, z,
 
             x-blockSize/2,y-blockSize/2,z-blockSize/2,1,
             textureSize,texYP,
-            0,-1,0,
+
             x, y, z,
 
             x+blockSize/2,y-blockSize/2,z-blockSize/2,1,
             textureSize*2,texYP,
-            0,-1,0,
+
             x, y, z,
             
             x-blockSize/2,y-blockSize/2,z+blockSize/2,1,
             textureSize,texYN,
-            0,-1,0,
+
             x, y, z,
         ],
 
@@ -151,32 +156,26 @@ function createBlockVertices([x, y, z], id, textureSize) {
         front: [
             x-blockSize/2,y+blockSize/2,z+blockSize/2,1,
             textureSize*2,texYN,
-            0,0,1,
             x, y, z,
 
             x+blockSize/2,y-blockSize/2,z+blockSize/2,1,
             textureSize*3,texYP,
-            0,0,1,
             x, y, z,
             
             x+blockSize/2,y+blockSize/2,z+blockSize/2,1,
             textureSize*3,texYN,
-            0,0,1,
             x, y, z,
 
             x-blockSize/2,y-blockSize/2,z+blockSize/2,1,
             textureSize*2,texYP,
-            0,0,1,
             x, y, z,
 
             x+blockSize/2,y-blockSize/2,z+blockSize/2,1,
             textureSize*3,texYP,
-            0,0,1,
             x, y, z,
             
             x-blockSize/2,y+blockSize/2,z+blockSize/2,1,
             textureSize*2,texYN,
-            0,0,1,
             x, y, z,
         ],
 
@@ -184,32 +183,26 @@ function createBlockVertices([x, y, z], id, textureSize) {
         right: [
             x+blockSize/2,y-blockSize/2,z+blockSize/2,1,
             textureSize*3,texYP,
-            1,0,0,
             x, y, z,
 
             x+blockSize/2,y+blockSize/2,z-blockSize/2,1,
             textureSize*4,texYN,
-            1,0,0,
             x, y, z,
             
             x+blockSize/2,y+blockSize/2,z+blockSize/2,1,
             textureSize*3,texYN,
-            1,0,0,
             x, y, z,
 
             x+blockSize/2,y-blockSize/2,z-blockSize/2,1,
             textureSize*4,texYP,
-            1,0,0,
             x, y, z,
 
             x+blockSize/2,y+blockSize/2,z-blockSize/2,1,
             textureSize*4,texYN,
-            1,0,0,
             x, y, z,
             
             x+blockSize/2,y-blockSize/2,z+blockSize/2,1,
             textureSize*3,texYP,
-            1,0,0,
             x, y, z,
         ],
 
@@ -217,32 +210,32 @@ function createBlockVertices([x, y, z], id, textureSize) {
         back: [
             x+blockSize/2,y-blockSize/2,z-blockSize/2,1,
             textureSize*4,texYP,
-            0,0,-1,
+
             x, y, z,
 
             x-blockSize/2,y+blockSize/2,z-blockSize/2,1,
             textureSize*5,texYN,
-            0,0,-1,
+
             x, y, z,
             
             x+blockSize/2,y+blockSize/2,z-blockSize/2,1,
             textureSize*4,texYN,
-            0,0,-1,
+
             x, y, z,
 
             x-blockSize/2,y-blockSize/2,z-blockSize/2,1,
             textureSize*5,texYP,
-            0,0,-1,
+
             x, y, z,
 
             x-blockSize/2,y+blockSize/2,z-blockSize/2,1,
             textureSize*5,texYN,
-            0,0,-1,
+
             x, y, z,
             
             x+blockSize/2,y-blockSize/2,z-blockSize/2,1,
             textureSize*4,texYP,
-            0,0,-1,
+
             x, y, z,
         ],
 
@@ -250,32 +243,32 @@ function createBlockVertices([x, y, z], id, textureSize) {
         left: [
             x-blockSize/2,y+blockSize/2,z-blockSize/2,1,
             textureSize*5,texYN,
-            -1,0,0,
+
             x, y, z,
 
             x-blockSize/2,y-blockSize/2,z+blockSize/2,1,
             textureSize*6,texYP,
-            -1,0,0,
+
             x, y, z,
             
             x-blockSize/2,y+blockSize/2,z+blockSize/2,1,
             textureSize*6,texYN,
-            -1,0,0,
+
             x, y, z,
 
             x-blockSize/2,y-blockSize/2,z-blockSize/2,1,
             textureSize*5,texYP,
-            -1,0,0,
+
             x, y, z,
 
             x-blockSize/2,y-blockSize/2,z+blockSize/2,1,
             textureSize*6,texYP,
-            -1,0,0,
+
             x, y, z,
             
             x-blockSize/2,y+blockSize/2,z-blockSize/2,1,
             textureSize*5,texYN,
-            -1,0,0,
+
             x, y, z,
         ]
     }
@@ -589,7 +582,7 @@ function createChunk(chunkX, chunkY, chunkZ) {
         
         let height = Math.round(perlinNoise(x/250, 0, z/250) * 80 * (perlinNoise(x/300, 0, z/300) + 0.3)) + Math.round(perlinNoise(x/30, 0, z/30) * 20 * perlinNoise(x/300, 0, z/300))
 
-        blockArray[i] = (cellNoise(x, y, z) < caveGridSize*caveThreshold) ? (y < height-5 ? 2 : y == height ? 1 : y < height ? 4 : 0) : 0
+        blockArray[i] = (cellNoise(x, y, z) < caveGridSize*caveThreshold) ? (y < height-5 ? (perlinNoise(x/10, y/10, z/10) < 0.4 ? 2 : 5) : y == height ? 1 : y < height ? 4 : 0) : 0
     }
 
     chunks[getChunkNameFromPos(chunkX, chunkY, chunkZ)] = blockArray
@@ -599,7 +592,7 @@ function getBlockChunk([x, y, z]) {
     return [Math.floor(x / chunkSize), Math.floor(y / chunkSize), Math.floor(z / chunkSize)]
 }
 
-fetchUtils().then(([adapter, device, shaderSource, diffuseImage]) => {
+fetchUtils().then(([adapter, device, shaderSource, diffuseImage, specularImage, normalImage]) => {
     // Create shader module
     const shaderModule = device.createShaderModule({
         code: shaderSource,
@@ -628,8 +621,29 @@ fetchUtils().then(([adapter, device, shaderSource, diffuseImage]) => {
         usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
     })
     
+    const camPosBuffer = device.createBuffer({
+        size: 32,
+        usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
+    })
+    
     const diffuseTexture = device.createTexture({
         size: [diffuseImage.width, diffuseImage.height, 1],
+        format: "rgba8unorm",
+        usage:  GPUTextureUsage.TEXTURE_BINDING |
+        GPUTextureUsage.COPY_DST |
+        GPUTextureUsage.RENDER_ATTACHMENT,
+    })
+    
+    const specularTexture = device.createTexture({
+        size: [specularImage.width, specularImage.height, 1],
+        format: "rgba8unorm",
+        usage:  GPUTextureUsage.TEXTURE_BINDING |
+        GPUTextureUsage.COPY_DST |
+        GPUTextureUsage.RENDER_ATTACHMENT,
+    })
+    
+    const normalTexture = device.createTexture({
+        size: [normalImage.width, normalImage.height, 1],
         format: "rgba8unorm",
         usage:  GPUTextureUsage.TEXTURE_BINDING |
         GPUTextureUsage.COPY_DST |
@@ -646,6 +660,18 @@ fetchUtils().then(([adapter, device, shaderSource, diffuseImage]) => {
         { source: diffuseImage },
         { texture: diffuseTexture },
         [diffuseImage.width, diffuseImage.height]
+    );
+    
+    device.queue.copyExternalImageToTexture(
+        { source: specularImage },
+        { texture: specularTexture },
+        [specularImage.width, specularImage.height]
+    );
+    
+    device.queue.copyExternalImageToTexture(
+        { source: normalImage },
+        { texture: normalTexture },
+        [normalImage.width, normalImage.height]
     );
         
     // Write test vertices to gpu
@@ -665,17 +691,12 @@ fetchUtils().then(([adapter, device, shaderSource, diffuseImage]) => {
                     format: "float32x2",
                 },
                 {
-                    shaderLocation: 2, // normal
+                    shaderLocation: 2, // block location
                     offset: 24,
-                    format: "float32x3"
-                },
-                {
-                    shaderLocation: 3, // block location
-                    offset: 36,
                     format: "float32x3"
                 }
             ],
-            arrayStride: 48,
+            arrayStride: 36,
             stepMode: "vertex",
         }
     ];
@@ -729,7 +750,19 @@ fetchUtils().then(([adapter, device, shaderSource, diffuseImage]) => {
             {
                 binding: 3,
                 resource: { buffer: highligtedBuffer }
-            }
+            },
+            {
+                binding: 4,
+                resource: { buffer: camPosBuffer }
+            },
+            {
+                binding: 5,
+                resource: specularTexture.createView()
+            },
+            {
+                binding: 6,
+                resource: normalTexture.createView()
+            },
         ],
     });
     
@@ -906,6 +939,7 @@ fetchUtils().then(([adapter, device, shaderSource, diffuseImage]) => {
         } else {
             device.queue.writeBuffer(highligtedBuffer, 0, new Int32Array([0, -1, 0]))
         }
+        device.queue.writeBuffer(camPosBuffer, 0, new Float32Array(camPos))
         
         // Init pass encoder
         const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);
@@ -925,7 +959,7 @@ fetchUtils().then(([adapter, device, shaderSource, diffuseImage]) => {
             
             passEncoder.setVertexBuffer(0, vertexBuffer);
             
-            passEncoder.draw(vArray.length/12);
+            passEncoder.draw(vArray.length/9);
         }
         
         passEncoder.end();
