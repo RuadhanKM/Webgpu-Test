@@ -258,7 +258,11 @@ function createBlockVertices([x, y, z], id, textureSize) {
     }
 }
 
-let airChunk
+let airChunk = new Uint16Array(chunkSize**3)
+
+for (let i=0; i<chunkSize**3; i++) {
+    airChunk[i] = 0
+}
 
 function fade(t) {
     return t * t * t * (t * (t * 6 - 15) + 10);
