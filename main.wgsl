@@ -14,7 +14,7 @@ struct VertexOut {
 @group(0) @binding(5) var specularTexture: texture_2d<f32>;
 @group(0) @binding(6) var normalTexture: texture_2d<f32>;
 
-const lightDir : vec3f = normalize(vec3f(80, 200, 100));
+const lightDir : vec3f = normalize(vec3f(90, 180, 100));
 const lightColor : vec3f = vec3f(0.75, 0.75, 0.75);
 const ambient : vec3f = lightColor * 0.35;
 
@@ -39,14 +39,14 @@ fn vertex_main(@location(0) position: vec4f, @location(1) uv: vec2f, @location(2
 
 @fragment
 fn fragment_main(fragData: VertexOut) -> @location(0) vec4f {
-	var normal : vec3f = textureLoad(normalTexture, vec2i(fragData.uv), 0).xyz-vec3f(0.5);
+	var normal : vec3f = normalize(textureLoad(normalTexture, vec2i(fragData.uv), 0).xyz-vec3f(0.5));
 
 	var diffuseFactor : f32 = max(dot(normal, lightDir), 0);
 	var diffuse : vec3f = diffuseFactor * lightColor;
 	
 	var fogFactor : f32 = clamp(fragData.position.w/100, 0, 1);
 	
-	var specularFactor : f32 = max(pow(dot(normalize(camPos - fragData.vertWorldPos.xyz), normalize(reflect(lightDir, normal))), 80), 0);
+	var specularFactor : f32 = max(pow(dot(normalize(camPos - fragData.vertWorldPos.xyz), normalize(reflect(-lightDir, normal))), 80), 0);
 	var specular : vec3f = lightColor * specularFactor * length(textureLoad(specularTexture, vec2i(fragData.uv), 0).xyz);
 	
 	var color: vec3f = (ambient + diffuse + specular) * textureLoad(diffuseTexture, vec2i(fragData.uv), 0).xyz;

@@ -1,7 +1,7 @@
-const mat4 = {
+export default {
     projection(width, height, depth, dst) {
         // Note: This matrix flips the Y axis so that 0 is at the top.
-        return mat4.ortho(0, width, height, 0, depth, -depth, dst);
+        return this.ortho(0, width, height, 0, depth, -depth, dst);
     },
 
     perspective(fieldOfViewYInRadians, aspect, zNear, zFar, dst) {
@@ -260,7 +260,7 @@ const mat4 = {
 
     rotationZYX([x, y, z], dst) {
         dst = dst || new Float32Array(16);
-        mat4.rotateX(mat4.rotateY(mat4.rotationZ(z, dst), y, dst), x, dst)
+        this.rotateX(this.rotateY(this.rotationZ(z, dst), y, dst), x, dst)
         return dst
     },
 
@@ -274,23 +274,23 @@ const mat4 = {
     },
 
     translate(m, translation, dst) {
-        return mat4.multiply(m, mat4.translation(translation), dst);
+        return this.multiply(m, this.translation(translation), dst);
     },
 
     rotateX(m, angleInRadians, dst) {
-        return mat4.multiply(m, mat4.rotationX(angleInRadians), dst);
+        return this.multiply(m, this.rotationX(angleInRadians), dst);
     },
 
     rotateY(m, angleInRadians, dst) {
-        return mat4.multiply(m, mat4.rotationY(angleInRadians), dst);
+        return this.multiply(m, this.rotationY(angleInRadians), dst);
     },
 
     rotateZ(m, angleInRadians, dst) {
-        return mat4.multiply(m, mat4.rotationZ(angleInRadians), dst);
+        return this.multiply(m, this.rotationZ(angleInRadians), dst);
     },
 
     rotateZYX(m, angleInRadians, dst) {
-        return mat4.multiply(m, mat4.rotationZYX(angleInRadians), dst);
+        return this.multiply(m, this.rotationZYX(angleInRadians), dst);
     },
 
     position(m) {
@@ -298,24 +298,24 @@ const mat4 = {
     },
 
     lookVector(m) {
-        let lookPos = mat4.position(mat4.multiply(m, mat4.translation([0, 0, 1])))
-        let pos = mat4.position(m)
+        let lookPos = this.position(this.multiply(m, this.translation([0, 0, 1])))
+        let pos = this.position(m)
         return [lookPos[0] - pos[0], lookPos[1] - pos[1], lookPos[2] - pos[2]]
     },
 
     rightVector(m) {
-        let lookPos = mat4.position(mat4.multiply(m, mat4.translation([1, 0, 0])))
-        let pos = mat4.position(m)
+        let lookPos = this.position(this.multiply(m, this.translation([1, 0, 0])))
+        let pos = this.position(m)
         return [lookPos[0] - pos[0], lookPos[1] - pos[1], lookPos[2] - pos[2]]
     },
 
     upVector(m) {
-        let lookPos = mat4.position(mat4.multiply(m, mat4.translation([0, 1, 0])))
-        let pos = mat4.position(m)
+        let lookPos = this.position(this.multiply(m, this.translation([0, 1, 0])))
+        let pos = this.position(m)
         return [lookPos[0] - pos[0], lookPos[1] - pos[1], lookPos[2] - pos[2]]
     },
 
     scale(m, scale, dst) {
-        return mat4.multiply(m, mat4.scaling(scale), dst);
+        return this.multiply(m, this.scaling(scale), dst);
     },
 };

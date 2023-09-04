@@ -1,4 +1,4 @@
-const vec3 = {
+export default {
     add(a, b) {
         return [a[0] + b[0], a[1] + b[1], a[2] + b[2]]
     },
@@ -15,15 +15,15 @@ const vec3 = {
     },
 
     mag(a) {
-        return Math.sqrt(vec3.dot(a, a))
+        return Math.sqrt(this.dot(a, a))
     },
 
     norm(a) {
-        return vec3.div(a, vec3.mag(a))
+        return this.div(a, this.mag(a))
     },
 
     dis(a, b) {
-        return vec3.mag(vec3.sub(a, b))
+        return this.mag(this.sub(a, b))
     },
 
     dot(a, b) {
