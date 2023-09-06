@@ -400,11 +400,12 @@ function createChunks(chunksToCreate) {
 
 function updateChunkBlockVertices(chunkX, chunkY, chunkZ, camPos) {
     let chunkName = getChunkNameFromPos(chunkX, chunkY, chunkZ)
-    if (!chunkInRenderDis(chunkX, chunkY, chunkZ, camPos)) {
-        delete vArrays[chunkName]
-        delete visableBlocks[chunkName]
-        return
-    }
+    
+    delete vArrays[chunkName]
+    delete visableBlocks[chunkName]
+
+    if (!chunkInRenderDis(chunkX, chunkY, chunkZ, camPos)) return
+
     let blockArray = getChunk(chunkX, chunkY, chunkZ, chunks)
     let vArray = []
     visableBlocks[chunkName] = []
