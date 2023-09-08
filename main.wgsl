@@ -44,7 +44,7 @@ fn fragment_main(fragData: VertexOut) -> @location(0) vec4f {
 	var diffuseFactor : f32 = max(dot(normal, lightDir), 0);
 	var diffuse : vec3f = diffuseFactor * lightColor;
 	
-	var fogFactor : f32 = clamp(fragData.position.w/100, 0, 1);
+	var fogFactor : f32 = clamp(fragData.position.w/90, 0, 1);
 	
 	var specularFactor : f32 = max(pow(dot(normalize(camPos - fragData.vertWorldPos.xyz), normalize(reflect(-lightDir, normal))), 80), 0);
 	var specular : vec3f = lightColor * specularFactor * length(textureLoad(specularTexture, vec2i(fragData.uv), 0).xyz);

@@ -377,14 +377,18 @@ function createChunk(chunkX, chunkY, chunkZ) {
     }
     let blockArray = new Uint16Array(chunkSize**3)
 
+    let height = 0
     for (let i=0; i<chunkSize**3; i++) {
         let y = Math.floor(i / chunkSize**2) + chunkY*chunkSize
         let x = Math.floor(i / chunkSize) % chunkSize + chunkX*chunkSize
         let z = i % chunkSize + chunkZ*chunkSize
         
-        let height = Math.round(perlinNoise(x/250, 0, z/250) * 80 * (perlinNoise(x/300, 0, z/300) + 0.3)) + Math.round(perlinNoise(x/30, 0, z/30) * 20 * perlinNoise(x/300, 0, z/300))
+        if (i % blockSize**2 == 0) height = Math.round(perlinNoise(x/250, 0, z/250) * 80 * (perlinNoise(x/300, 0, z/300) + 0.3)) + Math.round(perlinNoise(x/30, 0, z/30) * 20 * perlinNoise(x/300, 0, z/300))
 
         blockArray[i] = (cellNoise(x, y, z) < caveGridSize*caveThreshold) ? (y < height-5 ? (perlinNoise(x/10, y/10, z/10) < 0.4 ? 2 : 5) : y == height ? 1 : y < height ? 4 : 0) : 0
+        if (y > height && y < height+(Math.abs(perlinNoise(x/7, 0, z/7))*5+Math.abs(perlinNoise(x/1200, 0, z/1200))*14+5) && perlinNoise(x/1.5, 0, z/1.5) > perlinNoise(x/1200, 0, z/1200)/3 + 0.53 && (cellNoise(x, height, z) < caveGridSize*caveThreshold) == 1) {
+            blockArray[i] = 6
+        }
     }
 
     chunks[getChunkNameFromPos(chunkX, chunkY, chunkZ)] = blockArray

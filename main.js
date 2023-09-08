@@ -8,7 +8,7 @@ import {
     chunkInRenderDis, 
     getBlockChunk
 } from './util.js'
-import { renderDistance, chunkSize } from './settings.js'
+import { renderDistance, chunkSize, blockSize } from './settings.js'
 
 const canvas = document.getElementById("c")
 const canvasUi = document.getElementById("cui")
@@ -369,7 +369,7 @@ fetchUtils().then(([adapter, device, shaderSource, diffuseImage, specularImage, 
         },
     };
     
-    const projectionMat = mat4.perspective(Math.PI/2, canvas.clientWidth / canvas.clientHeight, 0.1, 2000)
+    const projectionMat = mat4.perspective(Math.PI/2, canvas.clientWidth / canvas.clientHeight, 0.2, blockSize*chunkSize*renderDistance/2)
 
     {
         let chunksToCreate = []
