@@ -26,11 +26,11 @@ onmessage = ({data: {message, chunksToUpdate, chunksToCreate, camPos, block, id}
     if (message == "replace") {
         let chunk = getBlockChunk(block)
         let relPos = getChunkRelPos(block, chunk)
-
+        
         chunks[getChunkNameFromPos(...chunk)][relPos[1]*chunkSize**2 + relPos[0]*chunkSize + relPos[2]] = id
-
+        
         let chunksToUpdate = [chunk]
-
+        
         if (relPos[0] == 0)             chunksToUpdate.push(vec3.add(chunk, [-1, 0, 0]))
         if (relPos[0] == chunkSize-1)   chunksToUpdate.push(vec3.add(chunk, [1, 0, 0]))
         if (relPos[1] == 0)             chunksToUpdate.push(vec3.add(chunk, [0, -1, 0]))
@@ -66,8 +66,9 @@ const permutation = [
     61, 156, 180,
 ];
 
+let rand = seededRandom(seed)
 for (let i = 0; i < 256; i++) {
-    p[256 + i] = p[i] = permutation[i] & seed;
+    p[256 + i] = p[i] = Math.floor(255 * rand());
 }
 
 function createBlockVertices([x, y, z], id, textureSize) {
@@ -279,7 +280,12 @@ function grad(hash, x, y, z) {
     return ((h & 1) == 0 ? u : -u) + ((h & 2) == 0 ? v : -v)
 }
 
+let perlinOffset = [(rand()-0.5)*1_000_000, (rand()-0.5)*1_000_000, (rand()-0.5)*1_000_000]
 function perlinNoise(x, y, z) {
+    x += perlinOffset[0]
+    y += perlinOffset[1]
+    z += perlinOffset[2]
+
     const X = Math.floor(x) & 255
     const Y = Math.floor(y) & 255
     const Z = Math.floor(z) & 255
@@ -316,11 +322,13 @@ function perlinNoise(x, y, z) {
     );
 }
 
-function mulberry32(a) {
-    a += 0x6D2B79F5;
-    a = Math.imul(a ^ a >>> 15, a | 1);
-    a ^= a + Math.imul(a ^ a >>> 7, a | 61);
-    return ((a ^ a >>> 14) >>> 0) / 4294967296;
+function seededRandom(a) {
+    return function() {
+        var t = a += 0x6D2B79F5;
+        t = Math.imul(t ^ t >>> 15, t | 1);
+        t ^= t + Math.imul(t ^ t >>> 7, t | 61);
+        return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    }
 }
 
 let cellCache = {}
@@ -333,8 +341,12 @@ function cellNoise(x, y, z) {
     let rx
     let ry
     let rz
-    let chunk
-    let r
+    let cx
+    let cy
+    let cz
+    let cxRand
+    let cyRand
+    let czRand
     let ox
     let oy
     let oz
@@ -347,16 +359,25 @@ function cellNoise(x, y, z) {
     } else {
         cellCache[bc] = []
         for (ox=-1; ox<=1; ox++) {
+            cx = bc[0] + ox
             for (oy=-1; oy<=1; oy++) {
+                cy = bc[1] + oy
                 for (oz=-1; oz<=1; oz++) {
-                    chunk = vec3.add(bc, [ox, oy, oz])
-                    r = mulberry32(chunk[0])*1000+mulberry32([chunk[1]])*1000+mulberry32([chunk[2]])
+                    cz = bc[2] + oz
 
-                    rx = mulberry32(r*1000)
-                    ry = mulberry32(rx*1000)
-                    rz = mulberry32(ry*1000)
+                    cxRand = seededRandom(cx)
+                    cyRand = seededRandom(cy)
+                    czRand = seededRandom(cz)
+                    
+                    cxRand = seededRandom(cxRand()*1000+cyRand()*1000+czRand()*1000)
+                    cyRand = seededRandom(cxRand()*1000+cyRand()*1000+czRand()*1000)
+                    czRand = seededRandom(cxRand()*1000+cyRand()*1000+czRand()*1000)
 
-                    p = [(chunk[0]+rx)*caveGridSize, (chunk[1]+ry)*caveGridSize, (chunk[2]+rz)*caveGridSize]
+                    rx = cxRand()
+                    ry = cyRand()
+                    rz = czRand()
+
+                    p = [(cx+rx)*caveGridSize, (cy+ry)*caveGridSize, (cz+rz)*caveGridSize]
 
                     cellCache[bc].push(p)
 
@@ -369,6 +390,10 @@ function cellNoise(x, y, z) {
     return minDis
 }
 
+let baseHeight = rand()*50-20
+let baseAmp = rand()*60+40
+let baseFreq = rand()*300+900
+
 function createChunk(chunkX, chunkY, chunkZ) {
     if (getChunk(chunkX, chunkY, chunkZ, chunks)) return
     if (chunkY > Math.ceil(124/chunkSize)) {
@@ -377,17 +402,104 @@ function createChunk(chunkX, chunkY, chunkZ) {
     }
     let blockArray = new Uint16Array(chunkSize**3)
 
-    let height = 0
+    let heightMap = []
+    let minHeight = Infinity
+    let maxHeight = -Infinity
+
+    if (chunkY < Math.floor(-124/chunkSize)) {
+        heightMap = new Array(chunkSize).fill(new Array(chunkSize).fill(0))
+    } else {
+        for (let rx=0; rx<chunkSize; rx++) {
+            let row = []
+            let x = rx + chunkX*chunkSize
+            for (let rz=0; rz<chunkSize; rz++) {
+                let z = rz + chunkZ*chunkSize
+                
+                let height = baseHeight
+                let amp = baseAmp
+                let freq = baseFreq
+
+                for (let i=0; i<8; i++) {
+                    height += perlinNoise(x/freq, 0, z/freq)*amp
+                    amp *= 0.5
+                    freq *= 0.4
+                }
+
+                // let height = perlinNoise(x/250, 0, z/250) * 40 * (Math.abs(perlinNoise(x/300, 0, z/300)) + 0.4) + perlinNoise(x/30, 0, z/30) * 20 * perlinNoise(x/300, 0, z/300)
+
+                if (height > maxHeight) maxHeight = height
+                if (height < minHeight) minHeight = height
+
+                row.push(height)
+            }
+            heightMap.push(row)
+        }
+    }
     for (let i=0; i<chunkSize**3; i++) {
         let y = Math.floor(i / chunkSize**2) + chunkY*chunkSize
-        let x = Math.floor(i / chunkSize) % chunkSize + chunkX*chunkSize
-        let z = i % chunkSize + chunkZ*chunkSize
-        
-        if (i % blockSize**2 == 0) height = Math.round(perlinNoise(x/250, 0, z/250) * 80 * (perlinNoise(x/300, 0, z/300) + 0.3)) + Math.round(perlinNoise(x/30, 0, z/30) * 20 * perlinNoise(x/300, 0, z/300))
+        let rx = Math.floor(i / chunkSize) % chunkSize 
+        let rz = i % chunkSize
 
-        blockArray[i] = (cellNoise(x, y, z) < caveGridSize*caveThreshold) ? (y < height-5 ? (perlinNoise(x/10, y/10, z/10) < 0.4 ? 2 : 5) : y == height ? 1 : y < height ? 4 : 0) : 0
-        if (y > height && y < height+(Math.abs(perlinNoise(x/7, 0, z/7))*5+Math.abs(perlinNoise(x/1200, 0, z/1200))*14+5) && perlinNoise(x/1.5, 0, z/1.5) > perlinNoise(x/1200, 0, z/1200)/3 + 0.53 && (cellNoise(x, height, z) < caveGridSize*caveThreshold) == 1) {
-            blockArray[i] = 6
+        let x = rx + chunkX*chunkSize
+        let z = rz + chunkZ*chunkSize
+
+        let height = heightMap[rx][rz]
+        
+        if (
+            y > Math.round(height) ||
+            height > maxHeight ||
+            cellNoise(x, y, z) > caveGridSize*caveThreshold
+        ) {
+            blockArray[i] = 0
+        } else if (
+            y < Math.round(height)-5
+        ) {
+            // Choose between stone and iron ore
+            blockArray[i] = (perlinNoise(x/10, y/10, z/10) < 0.4 ? 2 : 5)
+        } else if (
+            y < Math.round(height)
+        ) {
+            // Dirt
+            blockArray[i] = 4
+        } else if (
+            //y == 0 &&
+            height < -0.3
+        ) {
+            blockArray[i] = 8
+        } else if (
+            y == Math.round(height)
+        ) {
+            // Grass
+            if (y >= 0) {
+                blockArray[i] = 1
+            } else {
+                blockArray[i] = 8
+            }
+        }
+    }
+    for (let rx=0; rx<chunkSize; rx++) {
+        let x = rx + chunkX*chunkSize
+        for (let rz=0; rz<chunkSize; rz++) {
+            let z = rz + chunkZ*chunkSize
+            let height = heightMap[rx][rz]
+            if (height < -0.2) continue
+
+            let treeDensity = Math.abs(perlinNoise(x/600, 0, z/600))/3 + 0.5
+
+            if (perlinNoise(x/1.5, 0, z/1.5) < treeDensity) continue
+
+            let treeHeight = Math.round((Math.abs(perlinNoise(x/200, 0, z/200))+0.3)*6 + treeDensity*7 + rand()*2)
+
+            if (cellNoise(x, Math.round(height), z) < caveGridSize*caveThreshold) {
+                for (let ty=1; ty<=treeHeight; ty++) {
+                    let ry = (Math.round(height)+ty)-chunkSize*chunkY
+                    if (ry < 0) continue
+                    if (ry >= chunkSize) break
+
+                    let i = ry*chunkSize**2 + rx*chunkSize + rz
+                    blockArray[i] = 6
+                }
+            }
         }
     }
 
@@ -399,7 +511,9 @@ function createChunks(chunksToCreate) {
         createChunk(...chunk)
     }
 
-    postMessage({message: "chunks", chunks: chunks})
+    postMessage({message: "chunks", nChunks: chunks})
+
+    cellCache = {}
 }
 
 function updateChunkBlockVertices(chunkX, chunkY, chunkZ, camPos) {
@@ -462,7 +576,7 @@ function updateChunkBlockVertices(chunkX, chunkY, chunkZ, camPos) {
 
             blockV = createBlockVertices(block, id, 16)
 
-            visableBlocks[chunkName].push([x+(chunkX)*chunkSize, y+(chunkY)*chunkSize, z+(chunkZ)*chunkSize])
+            visableBlocks[chunkName].push([x+(chunkX)*chunkSize, y+(chunkY)*chunkSize, z+(chunkZ)*chunkSize, idR, idL, idU, idD, idF, idB])
 
             if (idU == 0) vArray.push(...blockV.top)
             if (idD == 0) vArray.push(...blockV.bottom)

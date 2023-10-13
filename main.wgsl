@@ -39,7 +39,11 @@ fn vertex_main(@location(0) position: vec4f, @location(1) uv: vec2f, @location(2
 
 @fragment
 fn fragment_main(fragData: VertexOut) -> @location(0) vec4f {
-	var normal : vec3f = normalize(textureLoad(normalTexture, vec2i(fragData.uv), 0).xyz-vec3f(0.5));
+	var diffuseTex = textureLoad(diffuseTexture, vec2i(fragData.uv), 0);
+	var normalTex = textureLoad(normalTexture, vec2i(fragData.uv), 0);
+	var specularTex = textureLoad(specularTexture, vec2i(fragData.uv), 0);
+
+	var normal : vec3f = normalize(normalTex.xyz-vec3f(0.5));
 
 	var diffuseFactor : f32 = max(dot(normal, lightDir), 0);
 	var diffuse : vec3f = diffuseFactor * lightColor;
@@ -47,9 +51,9 @@ fn fragment_main(fragData: VertexOut) -> @location(0) vec4f {
 	var fogFactor : f32 = clamp(fragData.position.w/90, 0, 1);
 	
 	var specularFactor : f32 = max(pow(dot(normalize(camPos - fragData.vertWorldPos.xyz), normalize(reflect(-lightDir, normal))), 80), 0);
-	var specular : vec3f = lightColor * specularFactor * length(textureLoad(specularTexture, vec2i(fragData.uv), 0).xyz);
+	var specular : vec3f = lightColor * specularFactor * length(specularTex.xyz);
 	
-	var color: vec3f = (ambient + diffuse + specular) * textureLoad(diffuseTexture, vec2i(fragData.uv), 0).xyz;
+	var color: vec3f = (ambient + diffuse + specular) * diffuseTex.xyz;
 
 	color = mix(color, fogColor, fogFactor);
 	color += fragData.overlayColor;

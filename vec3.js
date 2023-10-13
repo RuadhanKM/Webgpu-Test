@@ -29,4 +29,8 @@ export default {
     dot(a, b) {
         return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
     },
+
+    lerp(a, b, t) {
+        return this.mul(this.add(a, this.sub(b, a)), t)
+    }
 }
