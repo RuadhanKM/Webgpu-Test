@@ -49,7 +49,7 @@ function fetchUtils() {
     }).catch(reject))
 }
 
-let camPos = [0, 20, 0]
+let playerPos = [0, 20, 0]
 let camRot = [0, 0, 0]
 let mVel = [0, 0, 0]
 let jVel = 0
@@ -62,7 +62,7 @@ let rightClicked = false
 let deltaTime = 0
 let loaded = false
 let lastTime = 0
-let pCamPos = [0,0,0]
+let pPlayerPos = [0,0,0]
 let grounded = false
 
 let gameLoop
@@ -102,7 +102,7 @@ chunkWorker.onmessage = ({data: {message, nVArrays, nVisableBlocks, nChunks}}) =
 }
 
 function updateChunksBlockVertices(chunksToUpdate) {
-    chunkWorker.postMessage({message: "verts", chunksToUpdate: chunksToUpdate, camPos: camPos})
+    chunkWorker.postMessage({message: "verts", chunksToUpdate: chunksToUpdate, camPos: playerPos})
 }
 
 function lineToPlane(px,py,pz, ux,uy,uz,  vx,vy,vz, nx,ny,nz) {
@@ -240,7 +240,7 @@ function getBlockLook(origin, lineDirection, maxLen) {
 function chunkInView(chunkPos, lookDir) {
     let threshold = -2
 
-    let chunkCenterPos = vec3.sub(vec3.mul(chunkPos, chunkSize), camPos)
+    let chunkCenterPos = vec3.sub(vec3.mul(chunkPos, chunkSize), playerPos)
     if (vec3.dot(chunkCenterPos, lookDir) < threshold) return true
     if (vec3.dot(vec3.add(chunkCenterPos, [chunkSize, 0, 0]), lookDir) < threshold) return true
     if (vec3.dot(vec3.add(chunkCenterPos, [0, chunkSize, 0]), lookDir) < threshold) return true
@@ -444,17 +444,17 @@ fetchUtils().then(([adapter, device, shaderSource, diffuseImage, specularImage, 
         },
     };
     
-    const projectionMat = mat4.perspective(Math.PI/2, canvas.clientWidth / canvas.clientHeight, 0.2, blockSize*chunkSize*renderDistance/2)
+    const projectionMat = mat4.perspective(Math.PI/2, canvas.clientWidth / canvas.clientHeight, 0.1, blockSize*chunkSize*renderDistance/2)
 
     {
         let chunksToCreate = []
         for (let chunkX=-Math.floor(renderDistance/2); chunkX<Math.floor(renderDistance/2); chunkX++) {
             for (let chunkY=-Math.floor(renderDistance/2); chunkY<Math.floor(renderDistance/2); chunkY++) {
                 for (let chunkZ=-Math.floor(renderDistance/2); chunkZ<Math.floor(renderDistance/2); chunkZ++) {
-                    let x = getBlockChunk(camPos)[0] + chunkX
-                    let y = getBlockChunk(camPos)[1] + chunkY
-                    let z = getBlockChunk(camPos)[2] + chunkZ
-                    if (!chunkInRenderDis(x, y, z, camPos)) continue
+                    let x = getBlockChunk(playerPos)[0] + chunkX
+                    let y = getBlockChunk(playerPos)[1] + chunkY
+                    let z = getBlockChunk(playerPos)[2] + chunkZ
+                    if (!chunkInRenderDis(x, y, z, playerPos)) continue
                     
                     chunksToCreate.push([x, y, z])
                 }
@@ -479,6 +479,8 @@ fetchUtils().then(([adapter, device, shaderSource, diffuseImage, specularImage, 
             fps = Math.round(runningFps/15)
             runningFps = 0
         }
+
+        let camPos = vec3.add(playerPos, [0, 0.8, 0])
         
         let camToWorldMat = mat4.rotateZYX(mat4.translation(camPos), camRot)
         let lookDir = mat4.lookVector(camToWorldMat)
@@ -510,9 +512,9 @@ fetchUtils().then(([adapter, device, shaderSource, diffuseImage, specularImage, 
             }
         }
 
-        pCamPos = [...camPos]
+        pPlayerPos = [...playerPos]
         
-        let oldPos = getBlockChunk(camPos)
+        let oldPos = getBlockChunk(playerPos)
         
         let lookCirclePos = vec3.norm(vec3.sub(lookDir, [0, lookDir[1], 0]))
         let rightCirclePos = vec3.norm(vec3.sub(rightDir, [0, rightDir[1], 0]))
@@ -552,14 +554,12 @@ fetchUtils().then(([adapter, device, shaderSource, diffuseImage, specularImage, 
         gVel -= gravity * deltaTime
         gVel = Math.max(-maxGrav, gVel)
         
-        if (Math.abs(mVel[0]) <= acceleration*deltaTime-0.01) mVel[0] = 0
-        if (Math.abs(mVel[1]) <= Math.min(acceleration, gravity)*deltaTime-0.01) mVel[1] = 0
-        if (Math.abs(mVel[2]) <= acceleration*deltaTime-0.01) mVel[2] = 0
+        if (vec3.mag(mVel) < acceleration*deltaTime) mVel = [0, 0, 0]
         if (vec3.mag(mVel) > maxSpeed) mVel = vec3.mul(vec3.norm(mVel), maxSpeed)
 
         let pVel = vec3.add(mVel, [0, gVel + jVel, 0])
 
-        camPos = vec3.add(camPos, vec3.mul(pVel, deltaTime))
+        playerPos = vec3.add(playerPos, vec3.mul(pVel, deltaTime))
         
         grounded = false
 
@@ -567,28 +567,27 @@ fetchUtils().then(([adapter, device, shaderSource, diffuseImage, specularImage, 
             // First we calculate the movement vector for this frame
             // This is the entity's current position minus its last position.
             // The last position is set at the beggining of each frame.
-            var dx = camPos[0] - pCamPos[0] 
-            var dy = camPos[1] - pCamPos[1]
-            var dz = camPos[2] - pCamPos[2]
+            var dx = playerPos[0] - pPlayerPos[0] 
+            var dy = playerPos[1] - pPlayerPos[1]
+            var dz = playerPos[2] - pPlayerPos[2]
             
             var r = {h:1, nx:0, ny:0, nz:0};
     
             // For each voxel that may collide with the entity, find the first that colides with it
-            let playerChunk = getBlockChunk(camPos)
+            let playerChunk = getBlockChunk(playerPos)
 
-            let chunksToCheck = [
-                [0,0,0],
-                [1,0,0],
-                [0,1,0],
-                [0,0,1],
-                [-1,0,0],
-                [0,-1,0],
-                [0,0,-1],
-            ]
+            let chunksToCheck = []
+            for (let i=-1; i<2; i++) {
+                for (let j=-1; j<2; j++) {
+                    for (let k=-1; k<2; k++) {
+                        chunksToCheck.push([i, j, k])
+                    }
+                }
+            }
             
             for (const [chunkX, chunkY, chunkZ] of chunksToCheck.map(e => vec3.add(e, playerChunk))) {
                 let chunkName = getChunkNameFromPos(chunkX, chunkY, chunkZ)
-                if (!visableBlocks[chunkName]) continue
+                if (!visableBlocks[chunkName]) {console.warn("Failed to find chunk for collisions!"); continue}
 
                 for (const [x, y, z] of visableBlocks[chunkName]) {
                     // if (chunks[chunkName][i] == 0) continue
@@ -602,12 +601,13 @@ fetchUtils().then(([adapter, device, shaderSource, diffuseImage, specularImage, 
 
                     // Check swept collision
                     var c = sweepAABB(
-                        pCamPos[0]-0.4, pCamPos[1]-1.7, pCamPos[2]-0.4, // Player Bottom Left Point
-                        0.8, 1.9, 0.8, // Player Size
+                        pPlayerPos[0]-0.4, pPlayerPos[1]-0.9, pPlayerPos[2]-0.4, // Player Bottom Left Point
+                        0.8, 1.8, 0.8, // Player Size
                         x-0.5, y-0.5, z-0.5, // Block Bottom Left Point
                         1,1,1, // Block Size
                         dx, dy, dz
                     );
+                    
                     //Check if this collision is closer than the closest so far.
                     if (c.h < r.h) r = c;
                 }
@@ -617,13 +617,17 @@ fetchUtils().then(([adapter, device, shaderSource, diffuseImage, specularImage, 
 
             // Update the entity's position
             // We move the entity slightly away from the block in order to miss seams.
-            var ep = 0.006;
-            camPos[0] = pCamPos[0] + r.h*dx + ep*r.nx;
-            camPos[1] = pCamPos[1] + r.h*dy + ep*r.ny;
-            camPos[2] = pCamPos[2] + r.h*dz + ep*r.nz;
+            var ep = 0.001;
+            playerPos[0] = pPlayerPos[0] + r.h*dx + ep*r.nx;
+            playerPos[1] = pPlayerPos[1] + r.h*dy + ep*r.ny;
+            playerPos[2] = pPlayerPos[2] + r.h*dz + ep*r.nz;
     
             // If there was no collision, end the algorithm.
             if (r.h == 1) break;
+
+            if (r.nx != 0) mVel[0] = 0
+            if (r.ny != 0) {gVel = 0; jVel = 0; grounded = true}
+            if (r.nz != 0) mVel[2] = 0
 
             // Wall Sliding
             // c = a - (a.b)/(b.b) b
@@ -632,25 +636,22 @@ fetchUtils().then(([adapter, device, shaderSource, diffuseImage, specularImage, 
             // a - remaining speed (= (1-h)*speed)
             var BdotB = r.nx*r.nx + r.ny*r.ny + r.nz*r.nz;
             if (BdotB != 0) {
-
-                if (r.nx != 0) mVel[0] = 0
-                if (r.ny != 0) {gVel = 0; jVel = 0; grounded = true}
-                if (r.nz != 0) mVel[2] = 0
-    
                 // Store the current position for the next iteration
-                pCamPos = [...camPos]
+                pPlayerPos[0] = playerPos[0]
+                pPlayerPos[1] = playerPos[1]
+                pPlayerPos[2] = playerPos[2]
     
                 // Apply Slide
                 var AdotB = (1-r.h)*(dx*r.nx + dy*r.ny + dz*r.nz);
 
                 let slideVec = vec3.sub(vec3.mul([dx, dy, dz], 1-r.h), vec3.mul([r.nx, r.ny, r.nz], AdotB/BdotB));
 
-                camPos = vec3.add(camPos, slideVec)
+                playerPos = vec3.add(playerPos, slideVec)
             }
             if (MAX_ITER == 999) console.warn("Collision Checks Failed!")
         }
 
-        let newPos = getBlockChunk(camPos)
+        let newPos = getBlockChunk(playerPos)
         
         if (oldPos[0] != newPos[0] || oldPos[1] != newPos[1] || oldPos[2] != newPos[2]) {
             let chunksToUpdate = {}
@@ -658,7 +659,7 @@ fetchUtils().then(([adapter, device, shaderSource, diffuseImage, specularImage, 
             for (const chunkName in visableBlocks) {
                 let chunkPos = getChunkPosFromName(chunkName)
                 
-                if (!chunkInRenderDis(...chunkPos, camPos)) chunksToUpdate[chunkName] = true
+                if (!chunkInRenderDis(...chunkPos, playerPos)) chunksToUpdate[chunkName] = true
             }
             
             let chunksToCreate = []
@@ -669,7 +670,7 @@ fetchUtils().then(([adapter, device, shaderSource, diffuseImage, specularImage, 
                         let y = newPos[1] + chunkY
                         let z = newPos[2] + chunkZ
                         if (vArrays[getChunkNameFromPos(x, y, z)] != undefined) continue
-                        if (!chunkInRenderDis(x, y, z, camPos)) continue
+                        if (!chunkInRenderDis(x, y, z, playerPos)) continue
 
                         chunksToCreate.push([x, y, z])
                         chunksToUpdate[getChunkNameFromPos(x, y, z)] = true
@@ -698,7 +699,7 @@ fetchUtils().then(([adapter, device, shaderSource, diffuseImage, specularImage, 
         } else {
             device.queue.writeBuffer(highligtedBuffer, 0, new Int32Array([0, -1, 0]))
         }
-        device.queue.writeBuffer(camPosBuffer, 0, new Float32Array(camPos))
+        device.queue.writeBuffer(camPosBuffer, 0, new Float32Array(playerPos))
         
         // Init pass encoder
         const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);
