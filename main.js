@@ -16,7 +16,9 @@ import {
     acceleration,
     maxSpeed,
     maxGrav,
-    jumpHeight
+    jumpHeight,
+    playerSize,
+    camHeight
 } from './settings.js'
 
 const canvas = document.getElementById("c")
@@ -64,6 +66,8 @@ let loaded = false
 let lastTime = 0
 let pPlayerPos = [0,0,0]
 let grounded = false
+let camUnderwater = false
+let bodyUnderwater = false
 
 let gameLoop
 
@@ -99,6 +103,14 @@ chunkWorker.onmessage = ({data: {message, nVArrays, nVisableBlocks, nChunks}}) =
     if (message == "chunks") {
         chunks = nChunks
     }
+}
+
+function isPlayerInBlock([x, y, z], playerPos) {
+    return (
+        (x+0.5 >= playerPos[0]-playerSize[0]/2 && playerPos[0]+playerSize[0]/2 >= x-0.5) && 
+        (y+0.5 >= playerPos[1]-playerSize[1]/2 && playerPos[1]+playerSize[1]/2 >= y-0.5) && 
+        (z+0.5 >= playerPos[2]-playerSize[2]/2 && playerPos[2]+playerSize[2]/2 >= z-0.5)
+    ) 
 }
 
 function updateChunksBlockVertices(chunksToUpdate) {
@@ -266,7 +278,7 @@ fetchUtils().then(([adapter, device, shaderSource, diffuseImage, specularImage, 
     ctx.configure({
         device: device,
         format: navigator.gpu.getPreferredCanvasFormat(),
-        alphaMode: "premultiplied",
+        alphaMode: "premultiplied"
     });
        
     const worldToCamMatBuffer = device.createBuffer({
@@ -286,6 +298,11 @@ fetchUtils().then(([adapter, device, shaderSource, diffuseImage, specularImage, 
     
     const camPosBuffer = device.createBuffer({
         size: 32,
+        usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
+    })
+
+    const underwaterBuffer = device.createBuffer({
+        size: 8,
         usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
     })
     
@@ -355,9 +372,13 @@ fetchUtils().then(([adapter, device, shaderSource, diffuseImage, specularImage, 
                     shaderLocation: 2, // block location
                     offset: 24,
                     format: "float32x3"
+                }, {
+                    shaderLocation: 3,
+                    offset: 36,
+                    format: "float32"
                 }
             ],
-            arrayStride: 36,
+            arrayStride: 40,
             stepMode: "vertex",
         }
     ];
@@ -424,6 +445,10 @@ fetchUtils().then(([adapter, device, shaderSource, diffuseImage, specularImage, 
                 binding: 6,
                 resource: normalTexture.createView()
             },
+            {
+                binding: 7,
+                resource: { buffer: underwaterBuffer }
+            }
         ],
     });
     
@@ -472,15 +497,17 @@ fetchUtils().then(([adapter, device, shaderSource, diffuseImage, specularImage, 
         deltaTime = Math.min((performance.now() - lastTime) / 1000, 0.2)
         lastTime = performance.now()
         
-        ctx2D.reset()
-        
         runningFps += 1/deltaTime
         if (tick % 15 == 0) {
             fps = Math.round(runningFps/15)
             runningFps = 0
         }
 
-        let camPos = vec3.add(playerPos, [0, 0.8, 0])
+        if (!chunks[getChunkNameFromPos(...getBlockChunk(playerPos))]) return
+
+        ctx2D.reset()
+
+        let camPos = vec3.add(playerPos, [0, camHeight, 0])
         
         let camToWorldMat = mat4.rotateZYX(mat4.translation(camPos), camRot)
         let lookDir = mat4.lookVector(camToWorldMat)
@@ -504,11 +531,11 @@ fetchUtils().then(([adapter, device, shaderSource, diffuseImage, specularImage, 
                 if (face == -1) block = vec3.add(highlightedBlock, [1, 0, 0])
                 if (face == -2) block = vec3.add(highlightedBlock, [0, 1, 0])
                 if (face == -3) block = vec3.add(highlightedBlock, [0, 0, 1])
-                if (face == 1) block = vec3.add(highlightedBlock, [-1, 0, 0])
-                if (face == 2) block = vec3.add(highlightedBlock, [0, -1, 0])
-                if (face == 3) block = vec3.add(highlightedBlock, [0, 0, -1])
+                if (face ==  1) block = vec3.add(highlightedBlock, [-1, 0, 0])
+                if (face ==  2) block = vec3.add(highlightedBlock, [0, -1, 0])
+                if (face ==  3) block = vec3.add(highlightedBlock, [0, 0, -1])
 
-                chunkWorker.postMessage({message: "replace", block: block, id: 3})
+                if (!isPlayerInBlock(block, playerPos)) chunkWorker.postMessage({message: "replace", block: block, id: 3})
             }
         }
 
@@ -547,12 +574,12 @@ fetchUtils().then(([adapter, device, shaderSource, diffuseImage, specularImage, 
             mVel[0] -= rightCirclePos[0]*acceleration * deltaTime
             mVel[2] -= rightCirclePos[2]*acceleration * deltaTime
         }
-        if (keys[" "] && grounded) {
-            gVel = Math.sqrt(2*gravity*jumpHeight)
+        if (keys[" "] && (grounded || bodyUnderwater)) {
+            gVel = Math.sqrt(2*gravity*(bodyUnderwater ? jumpHeight/20 : jumpHeight)) 
         }
 
-        gVel -= gravity * deltaTime
-        gVel = Math.max(-maxGrav, gVel)
+        gVel -= (bodyUnderwater ? gravity/6 : gravity) * deltaTime
+        gVel = Math.max(-(bodyUnderwater ? maxGrav/12 : maxGrav), gVel)
         
         if (vec3.mag(mVel) < acceleration*deltaTime) mVel = [0, 0, 0]
         if (vec3.mag(mVel) > maxSpeed) mVel = vec3.mul(vec3.norm(mVel), maxSpeed)
@@ -575,11 +602,12 @@ fetchUtils().then(([adapter, device, shaderSource, diffuseImage, specularImage, 
     
             // For each voxel that may collide with the entity, find the first that colides with it
             let playerChunk = getBlockChunk(playerPos)
+            let playerRelPos = vec3.sub(vec3.div(getChunkRelPos(playerPos, playerChunk), chunkSize/2), [1,1,1])
 
             let chunksToCheck = []
-            for (let i=-1; i<2; i++) {
-                for (let j=-1; j<2; j++) {
-                    for (let k=-1; k<2; k++) {
+            for (let i=(playerRelPos[0]<=-0.5?-1:0); i<=(playerRelPos[0]>=0.5?1:0); i++) {
+                for (let j=(playerRelPos[1]<=-0.5?-1:0); j<=(playerRelPos[1]>=0.5?1:0); j++) {
+                    for (let k=(playerRelPos[2]<=-0.5?-1:0); k<=(playerRelPos[2]>=0.5?1:0); k++) {
                         chunksToCheck.push([i, j, k])
                     }
                 }
@@ -590,34 +618,31 @@ fetchUtils().then(([adapter, device, shaderSource, diffuseImage, specularImage, 
                 if (!visableBlocks[chunkName]) {console.warn("Failed to find chunk for collisions!"); continue}
 
                 for (const [x, y, z] of visableBlocks[chunkName]) {
-                    // if (chunks[chunkName][i] == 0) continue
-
-                    // let y = Math.floor(i / chunkSize**2) + chunkY*chunkSize
-                    // let rx = Math.floor(i / chunkSize) % chunkSize 
-                    // let rz = i % chunkSize
-            
-                    // let x = rx + chunkX*chunkSize
-                    // let z = rz + chunkZ*chunkSize
+                    let chunk = getBlockChunk([x, y, z])
+                    let [rx, ry, rz] = getChunkRelPos([x, y, z], chunk)
+                    let id = chunks[getChunkNameFromPos(...chunk)][ry*chunkSize**2 + rx*chunkSize + rz]
 
                     // Check swept collision
                     var c = sweepAABB(
-                        pPlayerPos[0]-0.4, pPlayerPos[1]-0.9, pPlayerPos[2]-0.4, // Player Bottom Left Point
-                        0.8, 1.8, 0.8, // Player Size
+                        pPlayerPos[0]-playerSize[0]/2, pPlayerPos[1]-playerSize[1]/2, pPlayerPos[2]-playerSize[2]/2, // Player Bottom Left Point
+                        playerSize[0], playerSize[1], playerSize[2], // Player Size
                         x-0.5, y-0.5, z-0.5, // Block Bottom Left Point
                         1,1,1, // Block Size
                         dx, dy, dz
                     );
                     
-                    //Check if this collision is closer than the closest so far.
-                    if (c.h < r.h) r = c;
+                    if (id == 9) {
+                        if (c.h != 1) bodyUnderwater = true
+                        //Check if this collision is closer than the closest so far.
+                    } else {
+                        if (c.h < r.h) r = c
+                    };
                 }
             }
-            
-            // console.log("r.h :" + r.h + "; r.ny: " + r.ny)
 
             // Update the entity's position
             // We move the entity slightly away from the block in order to miss seams.
-            var ep = 0.001;
+            var ep = 0.002;
             playerPos[0] = pPlayerPos[0] + r.h*dx + ep*r.nx;
             playerPos[1] = pPlayerPos[1] + r.h*dy + ep*r.ny;
             playerPos[2] = pPlayerPos[2] + r.h*dz + ep*r.nz;
@@ -626,7 +651,8 @@ fetchUtils().then(([adapter, device, shaderSource, diffuseImage, specularImage, 
             if (r.h == 1) break;
 
             if (r.nx != 0) mVel[0] = 0
-            if (r.ny != 0) {gVel = 0; jVel = 0; grounded = true}
+            if (r.ny != 0) {gVel = 0; jVel = 0}
+            if (r.ny > 0) grounded = true
             if (r.nz != 0) mVel[2] = 0
 
             // Wall Sliding
@@ -652,6 +678,28 @@ fetchUtils().then(([adapter, device, shaderSource, diffuseImage, specularImage, 
         }
 
         let newPos = getBlockChunk(playerPos)
+
+        bodyUnderwater = false
+
+        for (let x=-Math.ceil(playerSize[0]); x<Math.ceil(playerSize[0]); x++) {
+            for (let y=-Math.ceil(playerSize[1]); y<Math.ceil(playerSize[1]); y++) {
+                for (let z=-Math.ceil(playerSize[2]); z<Math.ceil(playerSize[2]); z++) {
+                    let blockPos = [x+playerPos[0], y+playerPos[1], z+playerPos[2]].map(Math.round)
+                    let blockChunk = getBlockChunk(blockPos)
+                    let blockRelPos = getChunkRelPos(blockPos, blockChunk)
+                    let i = blockRelPos[1]*chunkSize**2 + blockRelPos[0]*chunkSize + blockRelPos[2]
+
+                    
+                    let id = chunks[getChunkNameFromPos(...blockChunk)][i]
+                    if (id != 9) continue
+
+                    if (isPlayerInBlock(blockPos, playerPos)){
+                        bodyUnderwater = true
+                        break
+                    }
+                }
+            }
+        }
         
         if (oldPos[0] != newPos[0] || oldPos[1] != newPos[1] || oldPos[2] != newPos[2]) {
             let chunksToUpdate = {}
@@ -687,6 +735,15 @@ fetchUtils().then(([adapter, device, shaderSource, diffuseImage, specularImage, 
 
             updateChunksBlockVertices(Object.keys(chunksToUpdate).map(getChunkPosFromName))
         }
+
+        {
+            let cRoundPos = camPos.map(e => Math.round(e))
+            let cRoundChunk = getBlockChunk(cRoundPos)
+            let cRelPos = getChunkRelPos(cRoundPos, cRoundChunk)
+            camUnderwater = chunks[getChunkNameFromPos(...cRoundChunk)][cRelPos[1]*chunkSize**2 + cRelPos[0]*chunkSize + cRelPos[2]] == 9
+        }
+
+        renderPassDescriptor.colorAttachments[0].clearValue = camUnderwater ? { r: 0.23, g: 0.31, b: 0.82, a: 1} : { r: 0.53, g: 0.81, b: 0.92, a: 1.0 }
         
         // Create encoder
         const commandEncoder = device.createCommandEncoder();
@@ -699,7 +756,8 @@ fetchUtils().then(([adapter, device, shaderSource, diffuseImage, specularImage, 
         } else {
             device.queue.writeBuffer(highligtedBuffer, 0, new Int32Array([0, -1, 0]))
         }
-        device.queue.writeBuffer(camPosBuffer, 0, new Float32Array(playerPos))
+        device.queue.writeBuffer(camPosBuffer, 0, new Float32Array(camPos))
+        device.queue.writeBuffer(underwaterBuffer, 0, new Uint32Array([camUnderwater]))
         
         // Init pass encoder
         const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);
@@ -719,7 +777,7 @@ fetchUtils().then(([adapter, device, shaderSource, diffuseImage, specularImage, 
             
             passEncoder.setVertexBuffer(0, vertexBuffer);
             
-            passEncoder.draw(vArray.length/9);
+            passEncoder.draw(vArray.length/10);
         }
         
         passEncoder.end();

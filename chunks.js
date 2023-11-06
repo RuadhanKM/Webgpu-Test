@@ -82,59 +82,65 @@ function createBlockVertices([x, y, z], id, textureSize) {
             x+blockSize/2,y+blockSize/2,z-blockSize/2,1,
             textureSize,texYN,
             x, y, z,
+            id,
             
             x-blockSize/2,y+blockSize/2,z+blockSize/2,1,
             0,texYP,
             x, y, z,
+            id,
             
             x+blockSize/2,y+blockSize/2,z+blockSize/2,1,
             textureSize,texYP,
             x, y, z,
+            id,
             
             x-blockSize/2,y+blockSize/2,z-blockSize/2,1,
             0,texYN,
             x, y, z,
+            id,
             
             x-blockSize/2,y+blockSize/2,z+blockSize/2,1,
             0,texYP,
             x, y, z,
+            id,
             
             x+blockSize/2,y+blockSize/2,z-blockSize/2,1,
             textureSize,texYN,
             x, y, z,
+            id,
         ],
         
         // Bottom
         bottom: [
             x+blockSize/2,y-blockSize/2,z+blockSize/2,1,
             textureSize*2,texYN,
-            
             x, y, z,
+            id,
             
             x-blockSize/2,y-blockSize/2,z+blockSize/2,1,
             textureSize,texYN,
-            
             x, y, z,
+            id,
             
             x+blockSize/2,y-blockSize/2,z-blockSize/2,1,
             textureSize*2,texYP,
-            
             x, y, z,
+            id,
             
             x-blockSize/2,y-blockSize/2,z-blockSize/2,1,
             textureSize,texYP,
-            
             x, y, z,
+            id,
             
             x+blockSize/2,y-blockSize/2,z-blockSize/2,1,
             textureSize*2,texYP,
-            
             x, y, z,
+            id,
             
             x-blockSize/2,y-blockSize/2,z+blockSize/2,1,
             textureSize,texYN,
-            
             x, y, z,
+            id,
         ],
         
         // Front
@@ -142,26 +148,32 @@ function createBlockVertices([x, y, z], id, textureSize) {
             x-blockSize/2,y+blockSize/2,z+blockSize/2,1,
             textureSize*2,texYN,
             x, y, z,
+            id,
             
             x+blockSize/2,y-blockSize/2,z+blockSize/2,1,
             textureSize*3,texYP,
             x, y, z,
+            id,
             
             x+blockSize/2,y+blockSize/2,z+blockSize/2,1,
             textureSize*3,texYN,
             x, y, z,
+            id,
             
             x-blockSize/2,y-blockSize/2,z+blockSize/2,1,
             textureSize*2,texYP,
             x, y, z,
+            id,
             
             x+blockSize/2,y-blockSize/2,z+blockSize/2,1,
             textureSize*3,texYP,
             x, y, z,
+            id,
             
             x-blockSize/2,y+blockSize/2,z+blockSize/2,1,
             textureSize*2,texYN,
             x, y, z,
+            id,
         ],
         
         // Right
@@ -169,92 +181,98 @@ function createBlockVertices([x, y, z], id, textureSize) {
             x+blockSize/2,y-blockSize/2,z+blockSize/2,1,
             textureSize*3,texYP,
             x, y, z,
+            id,
             
             x+blockSize/2,y+blockSize/2,z-blockSize/2,1,
             textureSize*4,texYN,
             x, y, z,
+            id,
             
             x+blockSize/2,y+blockSize/2,z+blockSize/2,1,
             textureSize*3,texYN,
             x, y, z,
+            id,
             
             x+blockSize/2,y-blockSize/2,z-blockSize/2,1,
             textureSize*4,texYP,
             x, y, z,
+            id,
 
             x+blockSize/2,y+blockSize/2,z-blockSize/2,1,
             textureSize*4,texYN,
             x, y, z,
+            id,
             
             x+blockSize/2,y-blockSize/2,z+blockSize/2,1,
             textureSize*3,texYP,
             x, y, z,
+            id,
         ],
         
         // Back
         back: [
             x+blockSize/2,y-blockSize/2,z-blockSize/2,1,
             textureSize*4,texYP,
-            
             x, y, z,
+            id,
             
             x-blockSize/2,y+blockSize/2,z-blockSize/2,1,
             textureSize*5,texYN,
-            
             x, y, z,
+            id,
             
             x+blockSize/2,y+blockSize/2,z-blockSize/2,1,
             textureSize*4,texYN,
-            
             x, y, z,
+            id,
             
             x-blockSize/2,y-blockSize/2,z-blockSize/2,1,
             textureSize*5,texYP,
-            
             x, y, z,
+            id,
             
             x-blockSize/2,y+blockSize/2,z-blockSize/2,1,
             textureSize*5,texYN,
-            
             x, y, z,
+            id,
             
             x+blockSize/2,y-blockSize/2,z-blockSize/2,1,
             textureSize*4,texYP,
-            
             x, y, z,
+            id,
         ],
         
         // Left
         left: [
             x-blockSize/2,y+blockSize/2,z-blockSize/2,1,
             textureSize*5,texYN,
-            
             x, y, z,
+            id,
             
             x-blockSize/2,y-blockSize/2,z+blockSize/2,1,
             textureSize*6,texYP,
-            
             x, y, z,
+            id,
             
             x-blockSize/2,y+blockSize/2,z+blockSize/2,1,
             textureSize*6,texYN,
-            
             x, y, z,
+            id,
             
             x-blockSize/2,y-blockSize/2,z-blockSize/2,1,
             textureSize*5,texYP,
-            
             x, y, z,
+            id,
             
             x-blockSize/2,y-blockSize/2,z+blockSize/2,1,
             textureSize*6,texYP,
-            
             x, y, z,
+            id,
             
             x-blockSize/2,y+blockSize/2,z-blockSize/2,1,
             textureSize*5,texYN,
-            
             x, y, z,
+            id,
         ]
     }
 }
@@ -406,35 +424,32 @@ function createChunk(chunkX, chunkY, chunkZ) {
     let minHeight = Infinity
     let maxHeight = -Infinity
 
-    if (chunkY < Math.floor(-124/chunkSize)) {
-        heightMap = new Array(chunkSize).fill(new Array(chunkSize).fill(0))
-    } else {
-        for (let rx=0; rx<chunkSize; rx++) {
-            let row = []
-            let x = rx + chunkX*chunkSize
-            for (let rz=0; rz<chunkSize; rz++) {
-                let z = rz + chunkZ*chunkSize
-                
-                let height = baseHeight
-                let amp = baseAmp
-                let freq = baseFreq
+    for (let rx=0; rx<chunkSize; rx++) {
+        let row = []
+        let x = rx + chunkX*chunkSize
+        for (let rz=0; rz<chunkSize; rz++) {
+            let z = rz + chunkZ*chunkSize
+            
+            let height = baseHeight
+            let amp = baseAmp
+            let freq = baseFreq
 
-                for (let i=0; i<8; i++) {
-                    height += perlinNoise(x/freq, 0, z/freq)*amp
-                    amp *= 0.5
-                    freq *= 0.4
-                }
-
-                // let height = perlinNoise(x/250, 0, z/250) * 40 * (Math.abs(perlinNoise(x/300, 0, z/300)) + 0.4) + perlinNoise(x/30, 0, z/30) * 20 * perlinNoise(x/300, 0, z/300)
-
-                if (height > maxHeight) maxHeight = height
-                if (height < minHeight) minHeight = height
-
-                row.push(height)
+            for (let i=0; i<8; i++) {
+                height += perlinNoise(x/freq, 0, z/freq)*amp
+                amp *= 0.5
+                freq *= 0.4
             }
-            heightMap.push(row)
+
+            // let height = perlinNoise(x/250, 0, z/250) * 40 * (Math.abs(perlinNoise(x/300, 0, z/300)) + 0.4) + perlinNoise(x/30, 0, z/30) * 20 * perlinNoise(x/300, 0, z/300)
+
+            if (height > maxHeight) maxHeight = height
+            if (height < minHeight) minHeight = height
+
+            row.push(height)
         }
+        heightMap.push(row)
     }
+    
     for (let i=0; i<chunkSize**3; i++) {
         let y = Math.floor(i / chunkSize**2) + chunkY*chunkSize
         let rx = Math.floor(i / chunkSize) % chunkSize 
@@ -447,9 +462,14 @@ function createChunk(chunkX, chunkY, chunkZ) {
         
         if (
             y > Math.round(height) ||
-            height > maxHeight ||
+            height > maxHeight
+        ) {
+            // Water or air
+            blockArray[i] = y > -2 ? 0 : 9 
+        } else if (
             cellNoise(x, y, z) > caveGridSize*caveThreshold
         ) {
+            // Caves
             blockArray[i] = 0
         } else if (
             y < Math.round(height)-5
@@ -546,6 +566,12 @@ function updateChunkBlockVertices(chunkX, chunkY, chunkZ, camPos) {
     let idL
     let idF
     let idB
+    let idUS
+    let idDS
+    let idRS
+    let idLS
+    let idFS
+    let idBS
     let block
     let blockV
 
@@ -571,19 +597,26 @@ function updateChunkBlockVertices(chunkX, chunkY, chunkZ, camPos) {
         if (idF === false) idF = blockArrayF && blockArrayF[y*chunkSize**2 + x*chunkSize]
         if (idB === false) idB = blockArrayB && blockArrayB[y*chunkSize**2 + x*chunkSize + (chunkSize-1)]
 
-        if (idU == 0 || idD == 0 || idL == 0 || idR == 0 || idF == 0 || idB == 0) {
+        idUS = idU == 0 || (idU == 9 && id != 9)
+        idDS = idD == 0 || (idD == 9 && id != 9)
+        idLS = idL == 0 || (idL == 9 && id != 9)
+        idRS = idR == 0 || (idR == 9 && id != 9)
+        idFS = idF == 0 || (idF == 9 && id != 9)
+        idBS = idB == 0 || (idB == 9 && id != 9)
+
+        if (idUS || idDS || idLS || idRS || idFS || idBS) {
             block = [x+(chunkX)*chunkSize, y+(chunkY)*chunkSize, z+(chunkZ)*chunkSize]
 
             blockV = createBlockVertices(block, id, 16)
 
-            visableBlocks[chunkName].push([x+(chunkX)*chunkSize, y+(chunkY)*chunkSize, z+(chunkZ)*chunkSize, idR, idL, idU, idD, idF, idB])
+            if (id != 9) visableBlocks[chunkName].push([x+(chunkX)*chunkSize, y+(chunkY)*chunkSize, z+(chunkZ)*chunkSize, idR, idL, idU, idD, idF, idB])
 
-            if (idU == 0) vArray.push(...blockV.top)
-            if (idD == 0) vArray.push(...blockV.bottom)
-            if (idL == 0) vArray.push(...blockV.left)
-            if (idR == 0) vArray.push(...blockV.right)
-            if (idF == 0) vArray.push(...blockV.front)
-            if (idB == 0) vArray.push(...blockV.back)
+            if (idUS) vArray.push(...blockV.top)
+            if (idDS) vArray.push(...blockV.bottom)
+            if (idLS) vArray.push(...blockV.left)
+            if (idRS) vArray.push(...blockV.right)
+            if (idFS) vArray.push(...blockV.front)
+            if (idBS) vArray.push(...blockV.back)
         }
     }
 
