@@ -503,22 +503,48 @@ function createChunk(chunkX, chunkY, chunkZ) {
             let z = rz + chunkZ*chunkSize
             let height = heightMap[rx][rz]
             if (height < -0.2) continue
+            if (cellNoise(x, Math.round(height), z) > caveGridSize*caveThreshold) continue
 
             let treeDensity = Math.abs(perlinNoise(x/600, 0, z/600))/3 + 0.5
+            let treeHeight = Math.round((Math.abs(perlinNoise(x/200, 0, z/200))+0.3)*6 + treeDensity*7 + rand()*2)+2
+            let treeValue = perlinNoise(x/1.5, 0, z/1.5)
 
-            if (perlinNoise(x/1.5, 0, z/1.5) < treeDensity) continue
+            let leaves = false
+            let treeDis = 0
 
-            let treeHeight = Math.round((Math.abs(perlinNoise(x/200, 0, z/200))+0.3)*6 + treeDensity*7 + rand()*2)
+            findDis: if (treeValue < treeDensity) {
+                for (let dis=1; dis<3; dis++) {
+                    for (let i=-dis; i<=dis; i++) {
+                        for (let j=-dis; j<=dis; j++) {
+                            let newTreeDensity = Math.abs(perlinNoise((x+i)/600, 0, (z+j)/600))/3 + 0.5
+                            let newTreeValue = perlinNoise((x+i)/1.5, 0, (z+j)/1.5)
+                            let newHeight = heightMap[rx+i]?.[rz+j]
+                            
+                            if (!newHeight) continue
 
-            if (cellNoise(x, Math.round(height), z) < caveGridSize*caveThreshold) {
-                for (let ty=1; ty<=treeHeight; ty++) {
-                    let ry = (Math.round(height)+ty)-chunkSize*chunkY
-                    if (ry < 0) continue
-                    if (ry >= chunkSize) break
-
-                    let i = ry*chunkSize**2 + rx*chunkSize + rz
-                    blockArray[i] = 6
+                            if (
+                                newTreeValue >= newTreeDensity && 
+                                cellNoise((x+i), Math.round(newHeight), (z+j)) <= caveGridSize*caveThreshold &&
+                                newHeight >= -0.2
+                            ) {
+                                treeDis = dis
+                                leaves = true
+                                break findDis
+                            }
+                        }
+                    }
                 }
+
+                continue
+            }
+
+            for (let ty=1; ty<=(leaves ? treeHeight-treeDis-4 : treeHeight); ty++) {
+                let ry = (Math.round(height)+(leaves ? ty+treeHeight-4 : ty))-chunkSize*chunkY
+                if (ry < 0) continue
+                if (ry >= chunkSize) break
+
+                let i = ry*chunkSize**2 + rx*chunkSize + rz
+                blockArray[i] = leaves ? 7 : (treeHeight-ty <= 2 ? 7 : 6)
             }
         }
     }
