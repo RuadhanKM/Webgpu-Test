@@ -1,17 +1,21 @@
 export default {
-    add(a, b) {
-        return [a[0] + b[0], a[1] + b[1], a[2] + b[2]]
+    add(...args) {
+        return args.reduce((a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]])
     },
-    sub(a, b) {
-        return [a[0] - b[0], a[1] - b[1], a[2] - b[2]]
+    sub(...args) {
+        return args.reduce((a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]])
     },
-    mul(a, b) {
-        if (b instanceof Array) return [a[0] * b[0], a[1] * b[1], a[2] * b[2]]
-        return [a[0] * b, a[1] * b, a[2] * b]
+    mul(...args) {
+        return args.reduce((a, b) => {
+            if (b instanceof Array) return [a[0] * b[0], a[1] * b[1], a[2] * b[2]]
+            return [a[0] * b, a[1] * b, a[2] * b]
+        })
     },
-    div(a, b) {
-        if (b instanceof Array) return [a[0] / b[0], a[1] / b[1], a[2] / b[2]]
-        return [a[0] / b, a[1] / b, a[2] / b]
+    div(...args) {
+        return args.reduce((a, b) => {
+            if (b instanceof Array) return [a[0] / b[0], a[1] / b[1], a[2] / b[2]]
+            return [a[0] / b, a[1] / b, a[2] / b]
+        })
     },
 
     mag(a) {
@@ -31,6 +35,6 @@ export default {
     },
 
     lerp(a, b, t) {
-        return this.mul(this.add(a, this.sub(b, a)), t)
+        return this.add(a, this.mul(this.sub(b, a), t))
     }
 }

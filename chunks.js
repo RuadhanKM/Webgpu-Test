@@ -13,32 +13,38 @@ import {
     getChunkPosFromName, 
     getChunkNameFromPos, 
     chunkInRenderDis, 
-    getBlockChunk
+    getBlockChunk,
+    getChunkBlockIndex,
+    createBlockVertices,
+    replaceBlock
 } from './util.js'
 
-onmessage = ({data: {message, chunksToUpdate, chunksToCreate, camPos, block, id}}) => {
+let numUnupdatedBlocks = 0
+onmessage = ({data: {message, chunksToUpdate, chunksToCreate, camPos, block, id, doSleep}}) => {
     if (message == "verts") {
-        updateChunksBlockVertices(chunksToUpdate, camPos)
+        updateChunksBlockVertices(chunksToUpdate, camPos, doSleep)
     }
     if (message == "chunks") {
-        createChunks(chunksToCreate)
+        createChunks(chunksToCreate, camPos, doSleep)
     }
     if (message == "replace") {
-        let chunk = getBlockChunk(block)
-        let relPos = getChunkRelPos(block, chunk)
-        
-        chunks[getChunkNameFromPos(...chunk)][relPos[1]*chunkSize**2 + relPos[0]*chunkSize + relPos[2]] = id
-        
-        let chunksToUpdate = [chunk]
-        
-        if (relPos[0] == 0)             chunksToUpdate.push(vec3.add(chunk, [-1, 0, 0]))
-        if (relPos[0] == chunkSize-1)   chunksToUpdate.push(vec3.add(chunk, [1, 0, 0]))
-        if (relPos[1] == 0)             chunksToUpdate.push(vec3.add(chunk, [0, -1, 0]))
-        if (relPos[1] == chunkSize-1)   chunksToUpdate.push(vec3.add(chunk, [0, 1, 0]))
-        if (relPos[2] == 0)             chunksToUpdate.push(vec3.add(chunk, [0, 0, -1]))
-        if (relPos[2] == chunkSize-1)   chunksToUpdate.push(vec3.add(chunk, [0, 0, 1]))
+        replaceBlock(chunks, visableBlocks, vArrays, block, id)
+        numUnupdatedBlocks++
 
-        updateChunksBlockVertices(chunksToUpdate, block)
+        let blockChunk = getBlockChunk(block)
+        let chunksToUpdate = [blockChunk]
+
+        if (block[0] == 0) chunksToUpdate.push(vec3.add(blockChunk, [-1, 0, 0]))
+        if (block[0] == chunkSize-1) chunksToUpdate.push(vec3.add(blockChunk, [1, 0, 0]))
+        if (block[1] == 0) chunksToUpdate.push(vec3.add(blockChunk, [0, -1, 0]))
+        if (block[1] == chunkSize-1) chunksToUpdate.push(vec3.add(blockChunk, [0, 1, 0]))
+        if (block[2] == 0) chunksToUpdate.push(vec3.add(blockChunk, [0, 0, -1]))
+        if (block[2] == chunkSize-1) chunksToUpdate.push(vec3.add(blockChunk, [0, 0, 1]))
+
+        if (numUnupdatedBlocks > 20) {
+            updateChunksBlockVertices(chunksToUpdate, block)
+            numUnupdatedBlocks = 0
+        }
     }
 }
 
@@ -69,212 +75,6 @@ const permutation = [
 let rand = seededRandom(seed)
 for (let i = 0; i < 256; i++) {
     p[256 + i] = p[i] = Math.floor(255 * rand());
-}
-
-function createBlockVertices([x, y, z], id, textureSize) {
-    id--
-    let texYP = id*textureSize+textureSize
-    let texYN = id*textureSize
-    
-    return {
-        // Top
-        top: [
-            x+blockSize/2,y+blockSize/2,z-blockSize/2,1,
-            textureSize,texYN,
-            x, y, z,
-            id,
-            
-            x-blockSize/2,y+blockSize/2,z+blockSize/2,1,
-            0,texYP,
-            x, y, z,
-            id,
-            
-            x+blockSize/2,y+blockSize/2,z+blockSize/2,1,
-            textureSize,texYP,
-            x, y, z,
-            id,
-            
-            x-blockSize/2,y+blockSize/2,z-blockSize/2,1,
-            0,texYN,
-            x, y, z,
-            id,
-            
-            x-blockSize/2,y+blockSize/2,z+blockSize/2,1,
-            0,texYP,
-            x, y, z,
-            id,
-            
-            x+blockSize/2,y+blockSize/2,z-blockSize/2,1,
-            textureSize,texYN,
-            x, y, z,
-            id,
-        ],
-        
-        // Bottom
-        bottom: [
-            x+blockSize/2,y-blockSize/2,z+blockSize/2,1,
-            textureSize*2,texYN,
-            x, y, z,
-            id,
-            
-            x-blockSize/2,y-blockSize/2,z+blockSize/2,1,
-            textureSize,texYN,
-            x, y, z,
-            id,
-            
-            x+blockSize/2,y-blockSize/2,z-blockSize/2,1,
-            textureSize*2,texYP,
-            x, y, z,
-            id,
-            
-            x-blockSize/2,y-blockSize/2,z-blockSize/2,1,
-            textureSize,texYP,
-            x, y, z,
-            id,
-            
-            x+blockSize/2,y-blockSize/2,z-blockSize/2,1,
-            textureSize*2,texYP,
-            x, y, z,
-            id,
-            
-            x-blockSize/2,y-blockSize/2,z+blockSize/2,1,
-            textureSize,texYN,
-            x, y, z,
-            id,
-        ],
-        
-        // Front
-        front: [
-            x-blockSize/2,y+blockSize/2,z+blockSize/2,1,
-            textureSize*2,texYN,
-            x, y, z,
-            id,
-            
-            x+blockSize/2,y-blockSize/2,z+blockSize/2,1,
-            textureSize*3,texYP,
-            x, y, z,
-            id,
-            
-            x+blockSize/2,y+blockSize/2,z+blockSize/2,1,
-            textureSize*3,texYN,
-            x, y, z,
-            id,
-            
-            x-blockSize/2,y-blockSize/2,z+blockSize/2,1,
-            textureSize*2,texYP,
-            x, y, z,
-            id,
-            
-            x+blockSize/2,y-blockSize/2,z+blockSize/2,1,
-            textureSize*3,texYP,
-            x, y, z,
-            id,
-            
-            x-blockSize/2,y+blockSize/2,z+blockSize/2,1,
-            textureSize*2,texYN,
-            x, y, z,
-            id,
-        ],
-        
-        // Right
-        right: [
-            x+blockSize/2,y-blockSize/2,z+blockSize/2,1,
-            textureSize*3,texYP,
-            x, y, z,
-            id,
-            
-            x+blockSize/2,y+blockSize/2,z-blockSize/2,1,
-            textureSize*4,texYN,
-            x, y, z,
-            id,
-            
-            x+blockSize/2,y+blockSize/2,z+blockSize/2,1,
-            textureSize*3,texYN,
-            x, y, z,
-            id,
-            
-            x+blockSize/2,y-blockSize/2,z-blockSize/2,1,
-            textureSize*4,texYP,
-            x, y, z,
-            id,
-
-            x+blockSize/2,y+blockSize/2,z-blockSize/2,1,
-            textureSize*4,texYN,
-            x, y, z,
-            id,
-            
-            x+blockSize/2,y-blockSize/2,z+blockSize/2,1,
-            textureSize*3,texYP,
-            x, y, z,
-            id,
-        ],
-        
-        // Back
-        back: [
-            x+blockSize/2,y-blockSize/2,z-blockSize/2,1,
-            textureSize*4,texYP,
-            x, y, z,
-            id,
-            
-            x-blockSize/2,y+blockSize/2,z-blockSize/2,1,
-            textureSize*5,texYN,
-            x, y, z,
-            id,
-            
-            x+blockSize/2,y+blockSize/2,z-blockSize/2,1,
-            textureSize*4,texYN,
-            x, y, z,
-            id,
-            
-            x-blockSize/2,y-blockSize/2,z-blockSize/2,1,
-            textureSize*5,texYP,
-            x, y, z,
-            id,
-            
-            x-blockSize/2,y+blockSize/2,z-blockSize/2,1,
-            textureSize*5,texYN,
-            x, y, z,
-            id,
-            
-            x+blockSize/2,y-blockSize/2,z-blockSize/2,1,
-            textureSize*4,texYP,
-            x, y, z,
-            id,
-        ],
-        
-        // Left
-        left: [
-            x-blockSize/2,y+blockSize/2,z-blockSize/2,1,
-            textureSize*5,texYN,
-            x, y, z,
-            id,
-            
-            x-blockSize/2,y-blockSize/2,z+blockSize/2,1,
-            textureSize*6,texYP,
-            x, y, z,
-            id,
-            
-            x-blockSize/2,y+blockSize/2,z+blockSize/2,1,
-            textureSize*6,texYN,
-            x, y, z,
-            id,
-            
-            x-blockSize/2,y-blockSize/2,z-blockSize/2,1,
-            textureSize*5,texYP,
-            x, y, z,
-            id,
-            
-            x-blockSize/2,y-blockSize/2,z+blockSize/2,1,
-            textureSize*6,texYP,
-            x, y, z,
-            id,
-            
-            x-blockSize/2,y+blockSize/2,z-blockSize/2,1,
-            textureSize*5,texYN,
-            x, y, z,
-            id,
-        ]
-    }
 }
 
 let airChunk = new Uint16Array(chunkSize**3)
@@ -552,10 +352,13 @@ function createChunk(chunkX, chunkY, chunkZ) {
     chunks[getChunkNameFromPos(chunkX, chunkY, chunkZ)] = blockArray
 }
 
-function createChunks(chunksToCreate) {
+async function createChunks(chunksToCreate, camPos, doSleep) {
     for (const chunk of chunksToCreate) {
         createChunk(...chunk)
+        if (doSleep) await new Promise(r => setTimeout(r, 3));
     }
+
+    updateChunksBlockVertices(chunksToCreate, camPos, doSleep)
 
     postMessage({message: "chunks", nChunks: chunks})
 
@@ -635,7 +438,7 @@ function updateChunkBlockVertices(chunkX, chunkY, chunkZ, camPos) {
 
             blockV = createBlockVertices(block, id, 16)
 
-            if (id != 9) visableBlocks[chunkName].push([x+(chunkX)*chunkSize, y+(chunkY)*chunkSize, z+(chunkZ)*chunkSize, idR, idL, idU, idD, idF, idB])
+            if (id != 9) visableBlocks[chunkName].push([x+(chunkX)*chunkSize, y+(chunkY)*chunkSize, z+(chunkZ)*chunkSize, idR, idL, idU, idD, idF, idB, vArray.length])
 
             if (idUS) vArray.push(...blockV.top)
             if (idDS) vArray.push(...blockV.bottom)
@@ -649,7 +452,7 @@ function updateChunkBlockVertices(chunkX, chunkY, chunkZ, camPos) {
     if (vArray.length > 0) vArrays[chunkName] = new Float32Array(vArray)
 }
 
-function updateChunksBlockVertices(chunksToUpdate, camPos) {
+async function updateChunksBlockVertices(chunksToUpdate, camPos, doSleep) {
     let playerChunk = getBlockChunk(camPos)
 
     if (chunksToUpdate == undefined) {
@@ -668,6 +471,7 @@ function updateChunksBlockVertices(chunksToUpdate, camPos) {
 
     for (const [chunkX, chunkY, chunkZ] of chunksToUpdate) {
         updateChunkBlockVertices(chunkX, chunkY, chunkZ, camPos)
+        if (doSleep) await new Promise(r => setTimeout(r, 3));
     }
 
     postMessage({message: "verts", nVArrays: vArrays, nVisableBlocks: visableBlocks})
